@@ -274,7 +274,7 @@ function CameraRig({ cabin, partBoxesRef }) {
     hold.lastP = now;
     hold.idle = moved ? 0 : hold.idle + dt;
     // A sequence zone (laser, last piece, fastener region) owns the camera; the idle drift only applies without one.
-    if (hold.idle > 0.4 && !fx.zone && !store.assembled) {
+    if (hold.idle > 0.4 && !fx.zone && !fx.laserView && !store.assembled) {
       if (!hold.pos) {
         hold.pos = cur.pos.clone();
         hold.target = cur.target.clone();
@@ -295,6 +295,13 @@ function CameraRig({ cabin, partBoxesRef }) {
 
     // Sequence camera: one move per zone (set in assembly.js). The idle drift above takes precedence.
     const zoneMove = !!fx.zone && !store.assembled;
+    // The laser: the camera follows the cutting front (in world space) as the word is cut.
+    const laserCam = fx.laserView ? fx.laserView(store.progress) : null;
+    if (laserCam) {
+      wantPos = laserCam.pos;
+      wantTarget = laserCam.target;
+      wantFov = tmp.fov * (1 + narrow * 0.12);
+    }
     if (fx.zone !== zt.zone) {
       zt.zone = fx.zone;
       zt.from.copy(cur.pos);
@@ -381,15 +388,15 @@ function CameraRig({ cabin, partBoxesRef }) {
       hold.settled = false;
     }
     fx.idle = hold.idle > 0.4;
-    const k = zoneMove && !focus ? 1 : 1 - Math.exp(-dt * (focus ? 3.2 : focusW > 0.001 ? 6 : 5.5));
+    const k = zoneMove && !focus ? 1 : laserCam && !focus ? 1 - Math.exp(-dt * 2.6) : 1 - Math.exp(-dt * (focus ? 3.2 : focusW > 0.001 ? 6 : 5.5));
     cur.pos.lerp(wantPos, k);
     cur.target.lerp(wantTarget, k);
     cur.fov += (wantFov - cur.fov) * k;
 
     // Impact shake: a light, fast-decaying tremor. Kept subtle so the camera stays readable.
     fx.shake *= Math.exp(-dt * 6.5);
-    fx.bigShake *= Math.exp(-dt * 1.8); // the last piece's landing: a clearly visible tremor
-    const amp = Math.min(0.008, Math.pow(fx.shake, 1.4) * 0.008) + fx.bigShake * 0.03;
+    fx.bigShake *= Math.exp(-dt * 1.3); // the last piece's landing: a clearly visible tremor
+    const amp = Math.min(0.008, Math.pow(fx.shake, 1.4) * 0.008) + fx.bigShake * 0.06;
     const t = state.clock.elapsedTime;
     shakeOffset.set(
       (Math.sin(t * 61.0) * 0.6 + (Math.random() - 0.5) * 0.8) * amp,

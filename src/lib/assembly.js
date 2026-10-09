@@ -491,17 +491,8 @@ export function createAssembly({ outer, scene, phases, fx }) {
   }
 
   let lastZone = null;
-  let lastViewSet = false; // the camera holds on the last piece from its flight to its landing
-  // camera view for the last piece: from the front-left, holding it through its flight and landing
-  function lastPieceZone() {
-    const r = records.find((x) => x.isLast);
-    if (!r) return null;
-    const c = r.outerCenter;
-    const off = new THREE.Vector3(-1, 0.25, 0.9).normalize().multiplyScalar(2.2);
-    return { pos: outer.localToWorld(c.clone().add(off)), target: outer.localToWorld(c.clone()) };
-  }
   let popCam = null; // the fastener region the camera is holding
-  let laserLi = -1; // the letter the camera is following while it is cut
+  let laserWasActive = false; // the camera follows the cutting front while the word is cut
 
   // Fastener regions: the camera goes to a region's fixed view when its first fastener starts,
   // holds it until the last one of that region lands, then returns to the main path.
@@ -543,15 +534,6 @@ export function createAssembly({ outer, scene, phases, fx }) {
       }
 
       const flying = (rec.motion === 'fly' || rec.motion === 'train') && t > 0 && t < 1;
-      if (rec.isLast && t > 0 && !lastViewSet) {
-        lastViewSet = true;
-        const c = rec.outerCenter;
-        const off = new THREE.Vector3(-1, 0.25, 0.9).normalize().multiplyScalar(2.2);
-        fx.setZone({
-          pos: outer.localToWorld(c.clone().add(off)),
-          target: outer.localToWorld(c.clone()),
-        });
-      }
 
       // Glow while the piece is in the air, fading out as it lands.
       if (rec.glowTargets.length) {
@@ -595,19 +577,17 @@ export function createAssembly({ outer, scene, phases, fx }) {
         rec.focused = rec.focused && t > 0;
       }
     }
-    const li = laser ? laser.activeLetter(progress) : -1;
-    if (li >= 0) {
-      // the camera moves in front of each letter as the laser reaches it
-      if (li !== laserLi) {
-        laserLi = li;
-        fx.setZone(laser.viewFor(li));
-      }
+    const laserActive = !!laser && laser.isActive(progress);
+    if (laserActive) {
+      // the camera follows the cutting front down the word, letter by letter (rig reads fx.laserView)
+      fx.laserView = laser.camAt;
+      laserWasActive = true;
     } else {
-      if (laserLi >= 0) {
-        laserLi = -1;
-        // the word is done: the camera moves straight to the last piece, so it does not pull back first
-        fx.setZone(lastPieceZone());
-        lastViewSet = true;
+      fx.laserView = null;
+      if (laserWasActive) {
+        // the word is finished: the camera pulls back to the main framing before the last piece lands
+        fx.setZone(null);
+        laserWasActive = false;
       }
     const pz = activeRegion(progress);
     if (pz) {

@@ -16,6 +16,7 @@ const PASSES = 3; // zig-zag scan passes of the beam head over each letter
 const FONT = new Font(helvetiker);
 
 const clamp01 = (x) => Math.min(1, Math.max(0, x));
+const smoothStep = (x) => x * x * (3 - 2 * x);
 
 /** Letter geometry at the given size, its top edge at y = 0 and centred on x = 0. */
 function letterGeometry(ch, size, depth) {
@@ -112,7 +113,7 @@ export function createLaserSign({ fx, toWorld, panel, windowStart, windowEnd }) 
   const probeA = letterGeometry('A', 1, 0).boundingBox;
   const capH1 = probeA.max.y - probeA.min.y;
   const stackUnits = capH1 * (PITCH * (WORD.length - 1) + 1);
-  const k = Math.min((panel.height * 0.8) / stackUnits, (panel.width * 0.7) / widest);
+  const k = 0.7 * Math.min((panel.height * 0.8) / stackUnits, (panel.width * 0.7) / widest); // a smaller word on the panel
   const capH = capH1 * k;
   const depth = capH * 0.05;
   const dist = capH * 4.5; // camera distance from a letter while it is cut
@@ -163,10 +164,24 @@ export function createLaserSign({ fx, toWorld, panel, windowStart, windowEnd }) 
     return -1;
   }
 
-  /** Camera for letter i, in world space: in front of the letter, slightly from the side. */
-  function viewFor(i) {
-    const L = letters[i];
-    const centre = new THREE.Vector3(group.position.x, group.position.y + L.top - capH / 2, group.position.z + depth / 2);
+  function isActive(progress) {
+    return progress >= windowStart && progress < windowEnd;
+  }
+
+  /**
+   * Camera while the word is cut, in world space. It stays in front of the word and steps down letter by
+   * letter: it glides to the next letter during the second half of each letter's cut.
+   */
+  function camAt(progress) {
+    const n = letters.length;
+    const u = clamp01((progress - windowStart) / Math.max(1e-6, windowEnd - windowStart)) * n;
+    const i = Math.min(n - 1, Math.floor(u));
+    const f = Math.min(1, u - i);
+    const centreY = (j) => group.position.y + letters[j].top - capH * 0.5;
+    const e = smoothStep(clamp01((f - 0.5) / 0.5));
+    const next = Math.min(n - 1, i + 1);
+    const cy = centreY(i) + (centreY(next) - centreY(i)) * e;
+    const centre = new THREE.Vector3(group.position.x, cy, group.position.z + depth / 2);
     const dir = new THREE.Vector3(0.2, 0.08, 1).normalize();
     const pos = centre.clone().addScaledVector(dir, dist);
     return { pos: toWorld(pos), target: toWorld(centre) };
@@ -212,5 +227,5 @@ export function createLaserSign({ fx, toWorld, panel, windowStart, windowEnd }) 
     }
   }
 
-  return { group, update, activeLetter, viewFor };
+  return { group, update, activeLetter, isActive, camAt };
 }
