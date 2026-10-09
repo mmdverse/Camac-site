@@ -2,7 +2,6 @@ import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
 import { useProgress } from '@react-three/drei';
 import Site from './components/Site';
 import SplashCursor from './components/SplashCursor';
-import useScrollSplash from './components/ScrollSplash';
 import { getCabin, brand } from './data/cabins';
 
 // Scene (three.js + R3F) is code-split so the DOM shell paints before the WebGL bundle.
@@ -12,7 +11,6 @@ export default function App() {
   const cabin = getCabin('pro-v6');
   const [modelReady, setModelReady] = useState(false);
   const onModelReady = useCallback(() => setModelReady(true), []);
-  useScrollSplash();
 
   return (
     <>
@@ -20,8 +18,8 @@ export default function App() {
         <Suspense fallback={null}>
           <CabinScene cabin={cabin} onModelReady={onModelReady} />
         </Suspense>
-        {/* Fluid splash of the original component, in yellow (no rainbow). Lives on the stage, under the text. */}
-        <SplashCursor RAINBOW_MODE={false} COLOR="#FFD400" />
+        {/* Fluid splash of the original component: touch on mobile, pointer on desktop only. Yellow, softer force. */}
+        <SplashCursor RAINBOW_MODE={false} COLOR="#FFD400" SPLAT_FORCE={2500} />
       </div>
       <Site cabin={cabin} />
       <Loader done={modelReady} brand={brand.name} />
