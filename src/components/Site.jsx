@@ -27,6 +27,10 @@ function useSequenceProgress(ref) {
       onUpdate: (self) => {
         const seq = store.sequence;
         const p = seq ? seq.map.toProgress(self.progress) : self.progress;
+        if (store.seqReset) {
+          done = false; // back-to-top button: the sequence starts over from an empty scene
+          store.seqReset = false;
+        }
         if (p >= ASSEMBLED_AT) done = true;
         store.set({ progress: done ? 1 : p, assembled: done });
       },
@@ -162,7 +166,10 @@ export default function Site({ cabin }) {
       <button
         type="button"
         className={`to-top ${showTop ? 'is-on' : ''}`}
-        onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+        onClick={() => {
+          store.seqReset = true;
+          window.scrollTo({ top: 0, behavior: 'instant' });
+        }}
         aria-label="بازگشت به بالا"
         title="بازگشت به بالا"
       >

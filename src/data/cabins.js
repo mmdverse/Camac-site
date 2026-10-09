@@ -95,8 +95,8 @@ export const cameraPath = [
   { progress: 0.66, pos: [1.0, 1.2, 0.95], target: [0.8, 1.0, 0.2], fov: 24 },
   { progress: 0.76, pos: [-1.7, 0.6, 2.2], target: [0, 0.1, 0], fov: 32 },
   { progress: 0.86, pos: [0.4, -0.2, 1.3], target: [0, -0.2, 0], fov: 26 },
-  { progress: 0.94, pos: [0.35, 0.3, 2.6], target: [0, 0, 0], fov: 30 },
-  { progress: 1.0, pos: [0.35, 0.3, 2.6], target: [0, 0, 0], fov: 30 },
+  { progress: 0.94, pos: [0.35, 0.3, 3.4], target: [0, 0, 0], fov: 30 },
+  { progress: 1.0, pos: [0.35, 0.3, 3.4], target: [0, 0, 0], fov: 30 },
 ];
 
 export const cabins = [
