@@ -382,7 +382,7 @@ export function createAssembly({ outer, scene, phases, fx }) {
       restScale: m.scale.clone(),
       restQuat: m.quaternion.clone(),
       outerCenter: info.center.clone(),
-      spin: !isPop && info.size >= SMALL && item !== lastItem ? (idx % 2 ? 1 : -1) * (1.1 + Math.random() * 0.4) : 0,
+      spin: !isPop && info.size >= SMALL ? (idx % 2 ? 1 : -1) * (1.1 + Math.random() * 0.4) : 0,
       dir,
       up,
       contact,
@@ -406,8 +406,8 @@ export function createAssembly({ outer, scene, phases, fx }) {
       zone,
       focusWorld: outer.localToWorld(contact.clone()),
       focusSize: info.size,
-      impact: item === lastItem ? { dust: 0.35, sparks: 0, shake: 0.08 } : phase.impact ?? {}, // soft landing
-      bounce: item === lastItem ? 0 : Math.min(0.05, 0.01 + info.size * 0.025), // no rebound: it settles
+      impact: item === lastItem ? { dust: 2.2, sparks: 1.8, shake: 1.4 } : phase.impact ?? {}, // strong, visible landing
+      bounce: item === lastItem ? 0.09 : Math.min(0.05, 0.01 + info.size * 0.025), // the last piece rebounds clearly on landing
       glowTargets,
       liveT: 0,
     });
