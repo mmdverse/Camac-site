@@ -10,6 +10,7 @@ export const fx = {
   queue: [],
   idle: false, // true while scrolling has stopped (set by the camera rig)
   camPos: null, // camera position in world space (set by the camera rig)
+  view: { active: false, yaw: 0, pitch: 0 }, // cabin turn (kept inactive)
   autoScroll: false, // true while the page is scrolling by itself (no per-piece focus then)
   zone: null, // sequence camera zone: { pos, target } in world space, set once per zone
   focus: null, // { pos: Vector3 (world), camPos: Vector3 (world), size, t, hold }

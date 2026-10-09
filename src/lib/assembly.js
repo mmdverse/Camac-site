@@ -378,6 +378,7 @@ export function createAssembly({ outer, scene, phases, fx }) {
       rest: m.position.clone(),
       restScale: m.scale.clone(),
       restQuat: m.quaternion.clone(),
+      outerCenter: info.center.clone(),
       spin: !isPop && info.size >= SMALL ? (idx % 2 ? 1 : -1) * (1.1 + Math.random() * 0.4) : 0,
       dir,
       up,

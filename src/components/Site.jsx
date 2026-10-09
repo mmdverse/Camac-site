@@ -35,8 +35,8 @@ function useSequenceProgress(ref) {
   }, [ref]);
 }
 
-$1 = 3000; // after this much time without input, the page moves on by itself
-const AUTO_RUN_MS = 165000; // the whole track, assembly and showcase, plays through in about this long
+const AUTO_IDLE_MS = 3000; // after this much time without input, the page moves on by itself
+const AUTO_RUN_MS = 120000; // the whole track plays through in about this long
 const USER_EVENTS = ['wheel', 'touchstart', 'touchmove', 'pointerdown', 'keydown'];
 
 /**
