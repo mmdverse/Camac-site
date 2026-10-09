@@ -105,40 +105,16 @@ export default function Site({ cabin }) {
 
   const progress = useStore((s) => s.progress);
   const assembled = useStore((s) => s.assembled);
-  const exploded = useStore((s) => s.exploded);
   const started = useStore((s) => s.progress > 0.02);
 
   return (
     <div className="site">
-      <header className={`topbar interactive ${assembled ? 'is-on' : ''}`}>
-        <a className="wordmark" href="#top" aria-label={brand.name}>
-          <img src="/brand/logo.webp" alt={brand.name} width="44" height="44" />
-        </a>
-        <nav className="nav">
-          <a href="#contact">تماس</a>
-        </nav>
-      </header>
-
       {/* Progress bar: appears once the sequence starts. */}
       <div className={`chapter ${started && !assembled ? 'is-on' : ''}`} aria-hidden="true">
         <div className="chapter-bar">
           <span style={{ transform: `scaleX(${Math.min(1, progress)})` }} />
         </div>
       </div>
-
-      {assembled && (
-        <button
-          type="button"
-          className="explode-btn interactive"
-          onClick={() => {
-            const next = !store.exploded;
-            fx.explodeT = next ? 1 : 0;
-            store.set({ exploded: next });
-          }}
-        >
-          {exploded ? 'جمع کردن' : 'اکسپلود ویو'}
-        </button>
-      )}
 
       {/* Finale copy: appears when the cabin is complete. */}
       <div className={`finale ${assembled ? 'is-on' : ''}`} aria-hidden={!assembled}>

@@ -11,7 +11,6 @@ export const fx = {
   idle: false, // true while scrolling has stopped (set by the camera rig)
   camPos: null, // camera position in world space (set by the camera rig)
   view: { active: false, yaw: 0, pitch: 0 }, // cabin turn while a piece is shown or landing
-  explodeT: 0, // 0 = assembled, 1 = exploded (set by the exploded-view button)
   autoScroll: false, // true while the page is scrolling by itself (no per-piece focus then)
   zone: null, // sequence camera zone: { pos, target } in world space, set once per zone
   presentWorld: null, // point in front of the camera where a piece is shown while idle

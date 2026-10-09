@@ -17,6 +17,8 @@ const TRAIN_REACH = 1.2; // how far out along the lane a fastener starts
 const FOCUS_CHANCE = 0.3; // share of medium/big pieces that get their own camera focus (manual scroll only)
 const STOP_AT = 0.35; // where in its flight an auto-scroll stop lands
 const GLOW = new THREE.Color('#ffd27a');
+// Fastener regions are finished one at a time, in this order.
+const ZONE_ORDER = ['bottom', 'front', 'right', 'back', 'left', 'top'];
 
 /** Smooth in-out: slow start, gentle middle, slow landing. */
 const easeInOut = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
@@ -89,7 +91,7 @@ export function createAssembly({ outer, scene, phases, fx }) {
       const box = new THREE.Box3().setFromObject(m);
       const center = box.getCenter(new THREE.Vector3()).applyMatrix4(outerInv);
       const size = box.getSize(new THREE.Vector3()).length() / s;
-      return { m, center, size };
+      return { m, center, size, outerBox: box.clone().applyMatrix4(outerInv) };
     });
     const key = ORDERS[phase.order] ?? (() => 0);
     infos.sort((a, b) => key(a) - key(b));
@@ -185,11 +187,24 @@ export function createAssembly({ outer, scene, phases, fx }) {
   });
   queue.splice(0, queue.length, ...ordered);
 
-  // Big pieces first, then fasteners (within each group the phase order is kept).
+  // Big pieces first. Fasteners: phase by phase, then region by region (ZONE_ORDER), then from the
+  // bottom of each region upward, then around the cabin. A region is finished before the next starts.
+  for (const it of queue) {
+    it.zr = ZONE_ORDER.indexOf(zoneOf(it.info.center));
+    it.ang = Math.atan2(it.info.center.x - cabinC.x, it.info.center.z - cabinC.z);
+    if (it.info.size < SMALL) it.layer = it.zr; // grouping key: a unit never mixes regions
+  }
   queue.sort((x, y) => {
     const xs = x.info.size < SMALL ? 1 : 0;
     const ys = y.info.size < SMALL ? 1 : 0;
-    return xs - ys || x.phaseIdx - y.phaseIdx;
+    if (xs !== ys) return xs - ys;
+    if (!xs) return x.phaseIdx - y.phaseIdx;
+    return (
+      x.phaseIdx - y.phaseIdx ||
+      x.zr - y.zr ||
+      x.info.center.y - y.info.center.y ||
+      x.ang - y.ang
+    );
   });
 
   // 2. Units. Identical pieces (same name stem, size and phase), up to GROUP at once, land together:
@@ -299,15 +314,6 @@ export function createAssembly({ outer, scene, phases, fx }) {
       const k = memberOf.get(item) ?? 0;
       trainOff = k * TRAIN_GAP * slot;
       trainW = TRAIN_FLIGHT * slot;
-      if (k === 0 && phase.camera !== 'fixed') {
-        trainTrack = () => {
-          for (const it of u) {
-            const r = recOf.get(it);
-            if (r && r.liveT > 0 && r.liveT < 1) return r.m.getWorldPosition(new THREE.Vector3());
-          }
-          return null;
-        };
-      }
     } else if (unitSize.get(item) > 1) {
       const rad = info.center.clone().sub(cabinC);
       if (rad.lengthSq() < 1e-6) rad.set(0, 1, 0);
@@ -333,11 +339,6 @@ export function createAssembly({ outer, scene, phases, fx }) {
     const origin = zero.clone().applyMatrix4(toParent);
     const dir = dirOuter.clone().applyMatrix4(toParent).sub(origin);
     const up = new THREE.Vector3(0, 1, 0).applyMatrix4(toParent).sub(origin).normalize();
-    // exploded view: the piece moves away from the cabin's centre (a little upward)
-    const radialOuter = info.center.clone().sub(cabinC);
-    if (radialOuter.lengthSq() < 1e-6) radialOuter.set(0, 1, 0);
-    radialOuter.normalize().add(new THREE.Vector3(0, 0.2, 0)).normalize();
-    const explDir = radialOuter.applyMatrix4(toParent).sub(origin).normalize();
 
     // Contact point: on the face of the piece that meets the incoming direction.
     const contact = info.center.clone().addScaledVector(approach, -info.size * 0.3);
@@ -350,7 +351,7 @@ export function createAssembly({ outer, scene, phases, fx }) {
       focusMode = m.userData.yellow ? 'follow' : (phase.focus ?? (info.size >= (phase.focusMin ?? 0.45) ? 'wide' : 'orbit'));
     }
     // fasteners do not move the camera zone: a train stays in the step's main position
-    const zone = phase.camera === 'fixed' || isPop || item === lastItem ? null : zoneOf(info.center);
+    const zone = phase.camera === 'fixed' || item === lastItem ? null : zoneOf(info.center);
 
     // Glow while in the air: give each mesh its own material so only this piece lights up.
     const mats = Array.isArray(m.material) ? m.material : [m.material];
@@ -388,9 +389,6 @@ export function createAssembly({ outer, scene, phases, fx }) {
       trainTrack,
       camDir,
       trainLast: isPop && memberOf.get(item) === unitSize.get(item) - 1,
-      explDir,
-      explode: 0,
-      wasOut: false,
       fired: false,
       focused: false,
       focusMode: trainTrack ? 'follow' : focusMode,
@@ -483,14 +481,26 @@ export function createAssembly({ outer, scene, phases, fx }) {
   }
 
   let lastZone = null;
-  let lastExplodeT = 0;
+  let popCam = null; // the fastener region the camera is holding
+
+  // Fastener regions: the camera goes to a region's fixed view when its first fastener starts,
+  // holds it until the last one of that region lands, then returns to the main path.
+  const regions = new Map(); // zone -> [from, to] in progress units
+  for (const rec of records) {
+    if (rec.motion !== 'train') continue;
+    const r = regions.get(rec.zone) ?? [Infinity, -Infinity];
+    r[0] = Math.min(r[0], rec.start);
+    r[1] = Math.max(r[1], rec.start + rec.slotLen);
+    regions.set(rec.zone, r);
+  }
+  const activeRegion = (p) => {
+    for (const [z, [a, b]] of regions) if (p >= a - 1e-6 && p < b) return z;
+    return null;
+  };
 
   function update(progress, dt = 0, idle = false) {
     let viewRec = null;
     laser?.update(progress, dt);
-    const eT = fx.explodeT ?? 0;
-    if (eT === 0 && lastExplodeT === 1) fx.addShake(0.6); // collapse: a small tremor
-    lastExplodeT = eT;
     let zoneNow = null;
     for (const rec of records) {
       let t;
@@ -502,7 +512,7 @@ export function createAssembly({ outer, scene, phases, fx }) {
       } else {
         t = clamp01((progress - rec.start) / rec.dur);
       }
-      if (rec.zone && t > 0) zoneNow = rec.zone; // the zone of the latest piece that has started
+      if (rec.zone && t > 0 && rec.motion !== 'train') zoneNow = rec.zone; // the zone of the latest big piece that has started
       const m = rec.m;
       rec.liveT = t;
       const track = () => (rec.liveT >= 1 ? null : m.getWorldPosition(new THREE.Vector3()));
@@ -583,15 +593,6 @@ export function createAssembly({ outer, scene, phases, fx }) {
         }
       }
 
-      // Exploded view: a finished piece slides out along its own direction, and back in.
-      rec.explode += (eT - rec.explode) * (1 - Math.exp(-dt * 2.2));
-      if (rec.explode > 0.5) rec.wasOut = true;
-      if (rec.wasOut && rec.explode < 0.08) {
-        rec.wasOut = false;
-        emitImpact(rec); // the piece seats: sparks and dust
-      }
-      if (rec.explode > 0.001) m.position.addScaledVector(rec.explDir, rec.explode * (0.35 + rec.size * 0.7));
-
       if (rec.show > 0.01 && (!viewRec || rec.show > viewRec.show)) viewRec = rec;
 
       if (t >= 0.95 && rec.show < 0.02) {
@@ -604,9 +605,21 @@ export function createAssembly({ outer, scene, phases, fx }) {
         rec.focused = rec.focused && t > 0;
       }
     }
-    if (zoneNow && zoneNow !== lastZone) {
-      lastZone = zoneNow;
-      fx.setZone(zoneView(zoneNow));
+    const pz = activeRegion(progress);
+    if (pz) {
+      if (popCam !== pz) {
+        popCam = pz;
+        fx.setZone(zoneView(pz)); // fixed view for this region; the fasteners do not move the camera
+      }
+    } else {
+      if (popCam) {
+        popCam = null;
+        fx.setZone(null); // region finished: back to the main position
+      }
+      if (zoneNow && zoneNow !== lastZone) {
+        lastZone = zoneNow;
+        fx.setZone(zoneView(zoneNow));
+      }
     }
     applyView(viewRec);
   }
@@ -614,28 +627,35 @@ export function createAssembly({ outer, scene, phases, fx }) {
   // The CAMAC sign is etched on the front face just before the last joint.
   let laser = null;
   if (lastItem) {
-    let yMin = Infinity;
-    let yMax = -Infinity;
-    let zMax = -Infinity;
-    let xSum = 0;
+    // The host panel: the nearest big piece on the front side, next to the last joint.
+    const lc = lastItem.info.center;
+    let host = null;
+    let hostD = Infinity;
     for (const it of queue) {
-      const c = it.info.center;
-      yMin = Math.min(yMin, c.y);
-      yMax = Math.max(yMax, c.y);
-      zMax = Math.max(zMax, c.z);
-      xSum += c.x;
+      if (it === lastItem || it.info.size < 0.5 || it.info.center.z <= cabinC.z) continue;
+      const d = it.info.center.distanceTo(lc);
+      if (d < hostD) {
+        hostD = d;
+        host = it;
+      }
     }
-    const lastStart = T0 + (merged.length - 1) * slot;
-    laser = createLaserSign({
-      fx,
-      cx: xSum / Math.max(1, queue.length),
-      cy: (yMin + yMax) / 2,
-      zFace: zMax,
-      height: (yMax - yMin) * 0.45,
-      windowStart: lastStart - slot * 0.8,
-      windowEnd: lastStart - slot * 0.05,
-    });
-    outer.add(laser.group);
+    if (host) {
+      const b = host.info.outerBox;
+      const lastStart = T0 + (merged.length - 1) * slot;
+      laser = createLaserSign({
+        fx,
+        panel: {
+          cx: (b.min.x + b.max.x) / 2,
+          cy: (b.min.y + b.max.y) / 2,
+          zFace: b.max.z,
+          width: b.max.x - b.min.x,
+          height: b.max.y - b.min.y,
+        },
+        windowStart: lastStart - slot * 0.8,
+        windowEnd: lastStart - slot * 0.05,
+      });
+      outer.add(laser.group);
+    }
   }
 
   return { update, phases: phaseInfo, count: records.length, scrollMap: { toScroll, toProgress }, stops };

@@ -177,9 +177,6 @@ button { font: inherit; color: inherit; }
 /* Scroll track: 10 screens of scroll drive the assembly. */
 .sequence { height: 2600vh; pointer-events: none; }
 
-/* Header is hidden during the sequence and fades in once the cabin is complete. */
-.topbar { opacity: 0; transform: translateY(-8px); transition: opacity 1s var(--ease), transform 1s var(--ease); }
-.topbar.is-on { opacity: 1; transform: none; }
 
 /* Chapter HUD: bottom-left, pinned to the viewport while the sequence plays. */
 .chapter {
@@ -277,25 +274,6 @@ body { background: var(--bg); }
   .chapter { bottom: 4vh; }
 }
 
-/* Exploded-view toggle, shown once the cabin is complete */
-.explode-btn {
-  position: fixed;
-  left: 50%;
-  bottom: 24px;
-  transform: translateX(-50%);
-  z-index: 20;
-  padding: 10px 22px;
-  border: 1px solid #f5c400;
-  border-radius: 999px;
-  background: rgba(10, 10, 10, 0.75);
-  color: #f5c400;
-  font: inherit;
-  font-size: 15px;
-  cursor: pointer;
-  backdrop-filter: blur(6px);
-}
-.explode-btn:hover { background: #f5c400; color: #0a0a0a; }
-
 /* ---------- Loader: brand video on pure black, white glitch bar at the bottom edge ---------- */
 .loader { background: #000; gap: 0; }
 .loader-video { display: block; width: min(640px, 92vw); height: auto; background: #000; }
@@ -315,14 +293,6 @@ body { background: var(--bg); }
   58%  { clip-path: inset(0 0 0 0); transform: none; }
   100% { clip-path: inset(0 0 0 0); transform: none; }
 }
-
-/* ---------- Header: the logo is white, so it sits on a dark tile ---------- */
-.wordmark {
-  display: inline-flex; align-items: center; justify-content: center;
-  width: 52px; height: 52px; padding: 6px; border-radius: 14px;
-  background: #0f0e0c; box-shadow: 0 6px 20px rgba(0, 0, 0, .18);
-}
-.wordmark img { display: block; width: 100%; height: 100%; object-fit: contain; }
 
 /* ---------- Footer ---------- */
 .sfooter {
@@ -366,5 +336,3 @@ body { background: var(--bg); }
   .loader-bar { animation: none; }
 }
 
-/* Header is always visible (logo). */
-.topbar { opacity: 1; transform: none; }
