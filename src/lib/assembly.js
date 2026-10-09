@@ -491,6 +491,14 @@ export function createAssembly({ outer, scene, phases, fx }) {
 
   let lastZone = null;
   let lastViewSet = false; // the camera holds on the last piece from its flight to its landing
+  // camera view for the last piece: from the front-left, holding it through its flight and landing
+  function lastPieceZone() {
+    const r = records.find((x) => x.isLast);
+    if (!r) return null;
+    const c = r.outerCenter;
+    const off = new THREE.Vector3(-1, 0.25, 0.9).normalize().multiplyScalar(2.2);
+    return { pos: outer.localToWorld(c.clone().add(off)), target: outer.localToWorld(c.clone()) };
+  }
   let popCam = null; // the fastener region the camera is holding
   let laserLi = -1; // the letter the camera is following while it is cut
 
@@ -596,7 +604,9 @@ export function createAssembly({ outer, scene, phases, fx }) {
     } else {
       if (laserLi >= 0) {
         laserLi = -1;
-        fx.setZone(null); // the word is done: back to the main position for the last joint
+        // the word is done: the camera moves straight to the last piece, so it does not pull back first
+        fx.setZone(lastPieceZone());
+        lastViewSet = true;
       }
     const pz = activeRegion(progress);
     if (pz) {
