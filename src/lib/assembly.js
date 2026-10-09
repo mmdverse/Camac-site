@@ -604,6 +604,7 @@ export function createAssembly({ outer, scene, phases, fx }) {
 
   // The CAMAC sign is etched on the front face just before the last joint.
   let laser = null;
+  let laserEnd = 0; // progress where the laser sign is finished
   if (lastItem) {
     // The host panel: the grey front panel beside the door opening (the one marked for the sign).
     const hostName = normalizeNodeName(LASER_HOST);
@@ -637,11 +638,16 @@ export function createAssembly({ outer, scene, phases, fx }) {
         windowStart: lastStart - slot * 0.8,
         windowEnd: lastStart - slot * 0.05,
       });
+      laserEnd = lastStart - slot * 0.05;
       outer.add(laser.group);
     }
   }
 
-  return { update, phases: phaseInfo, count: records.length, scrollMap: { toScroll, toProgress }, stops };
+  // progress where the whole assembly (laser sign included) is finished, and that point's share of the scroll track
+  const pieceEnd = Math.max(...records.map((r) => (r.motion === 'train' ? r.start + r.trainOff + r.trainW : r.start + r.dur)));
+  const completeAt = Math.min(1, Math.max(pieceEnd, laserEnd));
+  const share = toScroll(completeAt);
+  return { update, phases: phaseInfo, count: records.length, scrollMap: { toScroll, toProgress }, stops, completeAt, share };
 }
 
 /** Index of the phase that is active at `progress`. */

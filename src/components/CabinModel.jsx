@@ -117,7 +117,7 @@ export default function CabinModel({ cabin, onReady }) {
     // 3. Cinematic assembly controller (built before any node is hidden/moved).
     assemblyRef.current = createAssembly({ outer: g, scene, phases: cabin.assembly, fx });
     // share the scroll map and the auto-scroll stops with the page
-    store.set({ sequence: { map: assemblyRef.current.scrollMap, stops: assemblyRef.current.stops } });
+    store.set({ sequence: { map: assemblyRef.current.scrollMap, stops: assemblyRef.current.stops, completeAt: assemblyRef.current.completeAt, share: assemblyRef.current.share } });
     window.dispatchEvent(new Event('scroll')); // re-sync progress with the current scroll position
     const partBoxes = new Map(parts.map((p) => [p.id, { center: p.center, size: p.size }]));
     onReady?.({ bounds, partBoxes });

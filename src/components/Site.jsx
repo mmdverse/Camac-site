@@ -16,26 +16,63 @@ const ASSEMBLED_AT = 0.985;
  * Its progress (0..1) drives the 3D scene. Once the cabin is complete it stays complete:
  * scrolling back up never takes the pieces apart.
  */
+/** Back to the empty start: the completed state is cleared and the page goes to the top. */
+function resetSequence() {
+  store.seqDone = false;
+  store.set({ progress: 0, assembled: false });
+  window.scrollTo({ top: 0, behavior: 'instant' });
+}
+
+function fadeThenReset() {
+  store.resetting = true;
+  const veil = store.veil;
+  veil?.classList.add('is-on');
+  setTimeout(() => {
+    resetSequence();
+    requestAnimationFrame(() => {
+      veil?.classList.remove('is-on');
+      store.resetting = false;
+    });
+  }, 700);
+}
+
+/**
+ * The sequence spacer is the scroll track for the cinematic assembly. Progress comes straight from the
+ * scroll position. The track ends exactly where the assembly completes (laser included), so no extra
+ * scrolling is needed before the model can be turned. Once complete it stays complete; scrolling up
+ * fades the scene out and returns to the empty start.
+ */
 function useSequenceProgress(ref) {
   useEffect(() => {
-    let done = false;
-    const trigger = ScrollTrigger.create({
-      trigger: ref.current,
-      start: 'top top',
-      end: 'bottom bottom',
-      scrub: false,
-      onUpdate: (self) => {
-        const seq = store.sequence;
-        const p = seq ? seq.map.toProgress(self.progress) : self.progress;
-        if (store.seqReset) {
-          done = false; // back-to-top button: the sequence starts over from an empty scene
-          store.seqReset = false;
-        }
-        if (p >= ASSEMBLED_AT) done = true;
-        store.set({ progress: done ? 1 : p, assembled: done });
-      },
-    });
-    return () => trigger.kill();
+    let lastY = window.scrollY;
+    const update = () => {
+      const el = ref.current;
+      if (!el) return;
+      const y = window.scrollY;
+      const range = el.offsetHeight - window.innerHeight;
+      const raw = range > 0 ? (y - el.offsetTop) / range : 0;
+      const sf = Math.min(1, Math.max(0, raw)); // 0..1 across the track
+      const going = y - lastY;
+      lastY = y;
+      if (store.resetting) return;
+      const seq = store.sequence;
+      const share = seq?.share ?? 1;
+      const f = sf * share; // fraction of the full assembly track
+      const p = seq ? seq.map.toProgress(f) : f;
+      if (store.seqDone && going < -2 && raw < 1) {
+        fadeThenReset();
+        return;
+      }
+      if (sf >= 0.999 || (seq ? p >= seq.completeAt - 0.003 : p >= ASSEMBLED_AT)) store.seqDone = true;
+      store.set({ progress: store.seqDone ? 1 : p, assembled: !!store.seqDone });
+    };
+    window.addEventListener('scroll', update, { passive: true });
+    window.addEventListener('resize', update);
+    update();
+    return () => {
+      window.removeEventListener('scroll', update);
+      window.removeEventListener('resize', update);
+    };
   }, [ref]);
 }
 
@@ -57,6 +94,10 @@ function useAutoScroll(ref) {
     let velocity = 0; // px per second
     let lastNow = 0;
     let raf = 0;
+    // random speed changes during the auto-glide: some pieces fly faster, some slower
+    let speedMul = 1;
+    let speedTarget = 1;
+    let nextSpeedAt = 0;
 
     const cancel = () => {
       running = false;
@@ -83,7 +124,12 @@ function useAutoScroll(ref) {
       }
       fx.autoScroll = running;
 
-      const target = running && track > 0 ? (track / AUTO_RUN_MS) * 1000 : 0;
+      if (running && now >= nextSpeedAt) {
+        speedTarget = 0.45 + Math.random() * 1.55;
+        nextSpeedAt = now + 900 + Math.random() * 1600;
+      }
+      speedMul += (speedTarget - speedMul) * (1 - Math.exp(-dt * 2));
+      const target = running && track > 0 ? (track / AUTO_RUN_MS) * 1000 * 0.85 * speedMul : 0;
       // ease the speed in and out so the glide starts and ends softly
       velocity += (target - velocity) * (1 - Math.exp(-dt * 1.5));
       if (Math.abs(velocity) < 0.5) {
@@ -137,6 +183,18 @@ function FooterItem({ row }) {
 export default function Site({ cabin }) {
   const sequenceRef = useRef(null);
   const [showTop, setShowTop] = useState(false);
+  const sequence = useStore((s) => s.sequence);
+  const veilRef = useRef(null);
+  useEffect(() => {
+    store.veil = veilRef.current;
+  }, []);
+  // the track is as long as needed to reach the completed model (scroll speed stays the same)
+  useEffect(() => {
+    const el = sequenceRef.current;
+    if (!el || !sequence) return;
+    el.style.height = `${(sequence.share ?? 1) * 1900}vh`;
+    ScrollTrigger.refresh();
+  }, [sequence]);
   useEffect(() => {
     const onScroll = () => setShowTop(window.scrollY > 400 && store.assembled);
     onScroll();
@@ -162,14 +220,14 @@ export default function Site({ cabin }) {
       {/* Scroll track for the cinematic assembly. */}
       <div ref={sequenceRef} className="sequence" aria-hidden="true" />
 
+      {/* Fades the scene out when the visitor scrolls back up after completion. */}
+      <div ref={veilRef} className="fade-veil" aria-hidden="true" />
+
       {/* Back to the top of the page. The finished cabin stays assembled. */}
       <button
         type="button"
         className={`to-top ${showTop ? 'is-on' : ''}`}
-        onClick={() => {
-          store.seqReset = true;
-          window.scrollTo({ top: 0, behavior: 'instant' });
-        }}
+        onClick={resetSequence}
         aria-label="بازگشت به بالا"
         title="بازگشت به بالا"
       >
