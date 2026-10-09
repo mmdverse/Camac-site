@@ -18,8 +18,8 @@ export default function App() {
         <Suspense fallback={null}>
           <CabinScene cabin={cabin} onModelReady={onModelReady} />
         </Suspense>
-        {/* Fluid splash of the original component: touch on mobile, pointer on desktop only. Yellow, softer force. */}
-        <SplashCursor RAINBOW_MODE={false} COLOR="#FFD400" SPLAT_FORCE={2500} />
+        {/* Fluid splash of the original component: touch on mobile, pointer on desktop only. Yellow. */}
+        <SplashCursor RAINBOW_MODE={false} COLOR="#FFD400" />
       </div>
       <Site cabin={cabin} />
       <Loader done={modelReady} brand={brand.name} />
