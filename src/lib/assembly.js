@@ -530,15 +530,11 @@ export function createAssembly({ outer, scene, phases, fx }) {
     for (const st of statics) st.m.visible = progress >= st.at;
     let zoneNow = null;
     for (const rec of records) {
-      let t;
-      if (rec.motion === 'train' && fx.autoScroll) {
-        t = clamp01((progress - rec.start - rec.trainOff) / rec.trainW);
-      } else if (rec.groupN > 1 && !fx.autoScroll) {
-        const part = rec.slotLen / rec.groupN;
-        t = clamp01((progress - (rec.start + rec.groupK * part)) / (part * 0.9));
-      } else {
-        t = clamp01((progress - rec.start) / rec.dur);
-      }
+      // One timeline for every scroll speed: auto-scroll and manual scroll place each piece identically,
+      // so switching between them never moves a group of pieces at once.
+      let t = rec.motion === 'train'
+        ? clamp01((progress - rec.start - rec.trainOff) / rec.trainW)
+        : clamp01((progress - rec.start) / rec.dur);
       if (rec.zone && t > 0 && rec.motion !== 'train') zoneNow = rec.zone; // the zone of the latest big piece that has started
       // Scroll drives the piece, but it never hangs in the air: when scrolling stops mid-flight the piece
       // lands on its own; when scrolling resumes it follows the scroll again, easing (no jump).
@@ -585,7 +581,7 @@ export function createAssembly({ outer, scene, phases, fx }) {
         }
       }
 
-      if (rec.motion === 'train' && fx.autoScroll) {
+      if (rec.motion === 'train') {
         // a fastener: appears, then flies along the train lane into its place
         m.visible = t > 0;
         m.scale.copy(rec.restScale).multiplyScalar(Math.max(0.0001, Math.min(1, t * 5)));

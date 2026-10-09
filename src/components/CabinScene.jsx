@@ -14,6 +14,9 @@ import { sampleCameraPath } from '../lib/cameraMath';
 const BG = '#cfccc4';
 const GROUND = '#b7b3a9';
 const ORIGIN = new THREE.Vector3(0, 0, 0);
+// showcase orbit: starts at the camera pose the assembly ends on (0.35, 0.3, 2.6)
+const SHOW_R = Math.hypot(0.35, 2.6);
+const SHOW_THETA0 = Math.atan2(0.35, 2.6);
 const UP = new THREE.Vector3(0, 1, 0);
 
 const isMobile = typeof window !== 'undefined' && window.matchMedia('(max-width: 768px)').matches;
@@ -260,6 +263,16 @@ function CameraRig({ cabin, partBoxesRef }) {
 
   useFrame((state, dt) => {
     sampleCameraPath(cabin.cameraPath, store.progress, ORIGIN, 1, tmp);
+    // Showcase: one full turn around the finished cabin, from above and below, with a slow dolly in and out.
+    const su = store.showU ?? 0;
+    if (su > 0) {
+      const th = SHOW_THETA0 + su * Math.PI * 2;
+      const r = SHOW_R * (1 - 0.15 * Math.sin(Math.PI * su));
+      const y = 0.3 + 0.9 * Math.sin(su * Math.PI * 2);
+      tmp.pos.set(Math.sin(th) * r, y, Math.cos(th) * r);
+      tmp.target.set(0, 0, 0);
+      tmp.fov = 30;
+    }
     // Portrait / narrow viewports: pull the camera back and widen the lens so the cabin stays in frame.
     const aspect = size.width / Math.max(1, size.height);
     const narrow = Math.min(1, Math.max(0, (1.1 - aspect) / 0.6)); // 0 at landscape, 1 at portrait
@@ -292,7 +305,7 @@ function CameraRig({ cabin, partBoxesRef }) {
     }
 
     // Sequence camera: one move per zone (set in assembly.js). The idle drift above takes precedence.
-    const zoneMove = !!fx.zone && !store.assembled && hold.idle <= 0.4;
+    const zoneMove = !!fx.zone && (store.showU ?? 0) <= 0 && hold.idle <= 0.4;
     if (fx.zone !== zt.zone) {
       zt.zone = fx.zone;
       zt.from.copy(cur.pos);

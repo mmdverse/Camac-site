@@ -180,7 +180,7 @@ button { font: inherit; color: inherit; }
 
 /* ---------- Cinematic assembly (v2) ---------- */
 /* Scroll track: 10 screens of scroll drive the assembly. */
-.sequence { height: 2600vh; pointer-events: none; }
+.sequence { height: 3600vh; pointer-events: none; } /* assembly (first 2600vh) + showcase (last 1000vh) */
 
 
 /* Chapter HUD: bottom-left, pinned to the viewport while the sequence plays. */

@@ -9,7 +9,9 @@ import { useStore } from '../lib/useStore';
 
 gsap.registerPlugin(ScrollTrigger);
 
-const ASSEMBLED_AT = 0.985;
+// The scroll track: the assembly plays in the first part, then a showcase turns the finished cabin.
+const TRACK_VH = 3600;
+const ASSEMBLY_SHARE = 2600 / TRACK_VH;
 
 /**
  * The sequence spacer is the scroll track for the cinematic assembly.
@@ -24,8 +26,12 @@ function useSequenceProgress(ref) {
       scrub: false,
       onUpdate: (self) => {
         const seq = store.sequence;
-        const p = seq ? seq.map.toProgress(self.progress) : self.progress;
-        store.set({ progress: p, assembled: p >= ASSEMBLED_AT });
+        const s = self.progress;
+        const a = Math.min(1, s / ASSEMBLY_SHARE);
+        const p = seq ? seq.map.toProgress(a) : a;
+        const u = Math.max(0, Math.min(1, (s - ASSEMBLY_SHARE) / (1 - ASSEMBLY_SHARE)));
+        // the pieces stay assembled during the showcase: scrolling back up only turns the camera
+        store.set({ progress: p, showU: u, assembled: u >= 0.999 });
       },
     });
     return () => trigger.kill();
@@ -33,7 +39,7 @@ function useSequenceProgress(ref) {
 }
 
 const AUTO_IDLE_MS = 3000; // after this much time without input, the page moves on by itself
-const AUTO_RUN_MS = 120000; // the whole sequence plays through in about this long (slow glide)
+const AUTO_RUN_MS = 165000; // the whole track, assembly and showcase, plays through in about this long
 const USER_EVENTS = ['wheel', 'touchstart', 'touchmove', 'pointerdown', 'keydown'];
 
 /**
@@ -70,12 +76,12 @@ function useAutoScroll(ref) {
       if (!running && hasScrolled && !store.assembled && now - lastActivity >= AUTO_IDLE_MS) {
         running = true;
       }
-      if (running && store.progress >= 0.999) {
-        running = false; // the sequence is complete: stay here
+      const track = el.offsetHeight - window.innerHeight;
+      if (running && window.scrollY >= track - 1) {
+        running = false; // the end of the track: stay here
       }
       fx.autoScroll = running;
 
-      const track = el.offsetHeight - window.innerHeight;
       const target = running && track > 0 ? (track / AUTO_RUN_MS) * 1000 : 0;
       // ease the speed in and out so the glide starts and ends softly
       velocity += (target - velocity) * (1 - Math.exp(-dt * 1.5));
