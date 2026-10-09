@@ -251,7 +251,8 @@ function CameraRig({ cabin, partBoxesRef }) {
   const shakeOffset = useMemo(() => new THREE.Vector3(), []);
   // Idle hold: when scrolling stops, the camera stays where it is with a slow drift,
   // instead of returning to the scroll path.
-  const hold = useMemo(() => ({ lastP: -1, idle: 0, pos: null, target: null }), []);
+  const hold = useMemo(() => ({ lastP: -1, idle: 0, pos: null, target: null, settled: false }), []);
+  const finalTmp = useMemo(() => ({ pos: new THREE.Vector3(), target: new THREE.Vector3(), fov: 36 }), []);
   // Zone moves ease from where the camera was to the new zone over a few seconds (no hard cut).
   const zt = useMemo(
     () => ({ zone: null, from: new THREE.Vector3(), fromT: new THREE.Vector3(), t: 1 }),
@@ -367,6 +368,17 @@ function CameraRig({ cabin, partBoxesRef }) {
       cur.fov = wantFov;
       cur.primed = true;
     }
+    // Completed model: the camera first settles on the final framing (not on the last close-up of the
+    // laser), then the visitor can turn the cabin.
+    if (store.assembled) {
+      sampleCameraPath(cabin.cameraPath, 1, ORIGIN, 1, finalTmp);
+      wantPos = finalTmp.pos.clone().sub(ORIGIN).multiplyScalar(pull).add(ORIGIN);
+      wantTarget = finalTmp.target.clone();
+      wantFov = finalTmp.fov * (1 + narrow * 0.12);
+      if (!hold.settled && cur.pos.distanceTo(wantPos) < 0.03) hold.settled = true;
+    } else {
+      hold.settled = false;
+    }
     fx.idle = hold.idle > 0.4;
     const k = zoneMove && !focus ? 1 : 1 - Math.exp(-dt * (focus ? 3.2 : focusW > 0.001 ? 6 : 5.5));
     cur.pos.lerp(wantPos, k);
@@ -383,7 +395,7 @@ function CameraRig({ cabin, partBoxesRef }) {
       (Math.sin(t * 53.0 + 2.1) * 0.5 + (Math.random() - 0.5) * 0.6) * amp * 0.7,
     );
 
-    const orbitOwns = store.assembled; // once complete, orbit controls own the camera
+    const orbitOwns = store.assembled && hold.settled; // once the final framing is reached, orbit controls own the camera
     if (!orbitOwns) {
       camera.position.copy(cur.pos).add(shakeOffset);
       camera.lookAt(cur.target.clone().add(shakeOffset.clone().multiplyScalar(2.5)));

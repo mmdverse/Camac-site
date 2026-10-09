@@ -125,11 +125,11 @@ function useAutoScroll(ref) {
       fx.autoScroll = running;
 
       if (running && now >= nextSpeedAt) {
-        speedTarget = 0.45 + Math.random() * 1.55;
+        speedTarget = 1.5 + Math.random() * 1.5; // 1.5x to 3x
         nextSpeedAt = now + 900 + Math.random() * 1600;
       }
       speedMul += (speedTarget - speedMul) * (1 - Math.exp(-dt * 2));
-      const target = running && track > 0 ? (track / AUTO_RUN_MS) * 1000 * 0.85 * speedMul : 0;
+      const target = running && track > 0 ? (track / AUTO_RUN_MS) * 1000 * speedMul : 0;
       // ease the speed in and out so the glide starts and ends softly
       velocity += (target - velocity) * (1 - Math.exp(-dt * 1.5));
       if (Math.abs(velocity) < 0.5) {
@@ -184,6 +184,11 @@ export default function Site({ cabin }) {
   const sequenceRef = useRef(null);
   const [showTop, setShowTop] = useState(false);
   const sequence = useStore((s) => s.sequence);
+  const assembled = useStore((s) => s.assembled);
+  // the back-to-top button follows completion right away, not only on the next scroll
+  useEffect(() => {
+    setShowTop(window.scrollY > 400 && assembled);
+  }, [assembled]);
   const veilRef = useRef(null);
   useEffect(() => {
     store.veil = veilRef.current;
