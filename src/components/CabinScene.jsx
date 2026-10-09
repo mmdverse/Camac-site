@@ -221,6 +221,9 @@ function OrbitRig() {
     c.maxDistance = 6;
     c.target.set(0, 0, 0);
     c.enabled = false;
+    // OrbitControls sets touch-action: none on the canvas, which blocks page scrolling on touch screens.
+    // Keep vertical touch scrolling for the page; horizontal drags still rotate the cabin.
+    gl.domElement.style.touchAction = 'pan-y';
     return c;
   }, [camera, gl]);
   useEffect(() => () => controls.dispose(), [controls]);

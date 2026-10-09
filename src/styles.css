@@ -365,3 +365,6 @@ body { background: var(--bg); }
 @media (prefers-reduced-motion: reduce) {
   .loader-bar { animation: none; }
 }
+
+/* Header is always visible (logo). */
+.topbar { opacity: 1; transform: none; }
