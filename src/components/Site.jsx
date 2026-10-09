@@ -32,8 +32,8 @@ function useSequenceProgress(ref) {
   }, [ref]);
 }
 
-const AUTO_IDLE_MS = 8000; // after this much time without input, the page moves on by itself
-const AUTO_RUN_MS = 200000; // the whole sequence plays through in about this long (slow glide)
+const AUTO_IDLE_MS = 3000; // after this much time without input, the page moves on by itself
+const AUTO_RUN_MS = 120000; // the whole sequence plays through in about this long (slow glide)
 const USER_EVENTS = ['wheel', 'touchstart', 'touchmove', 'pointerdown', 'keydown'];
 
 /**
