@@ -357,7 +357,8 @@ export function createAssembly({ outer, scene, phases, fx }) {
     // Camera moves are zone-based (see zoneOf); floor and wall steps keep the camera still.
     // A random selection of medium/big pieces also gets its own focus (zoom in or pull back).
     let focusMode = null;
-    if (!isPop && phase.camera !== 'fixed' && Math.random() < FOCUS_CHANCE) {
+    // the last piece keeps the camera on its own close view: no pull-back focus during its landing
+    if (!isPop && item !== lastItem && phase.camera !== 'fixed' && Math.random() < FOCUS_CHANCE) {
       focusMode = m.userData.yellow ? 'follow' : (phase.focus ?? (info.size >= (phase.focusMin ?? 0.45) ? 'wide' : 'orbit'));
     }
     // fasteners do not move the camera zone: a train stays in the step's main position
