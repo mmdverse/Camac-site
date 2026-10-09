@@ -336,6 +336,8 @@ export function createAssembly({ outer, scene, phases, fx }) {
         new THREE.Vector3((Math.random() - 0.5) * 0.25, (Math.random() - 0.5) * 0.2, (Math.random() - 0.5) * 0.25),
       ).normalize();
     }
+    // the last piece comes in from the left, in one soft slow glide
+    if (item === lastItem) approach = new THREE.Vector3(-1, 0.12, 0).normalize();
     const reach = isPop ? TRAIN_REACH : 1.3 + Math.random() * 0.6;
     const dirOuter = approach.clone().multiplyScalar(reach);
 
@@ -380,7 +382,7 @@ export function createAssembly({ outer, scene, phases, fx }) {
       restScale: m.scale.clone(),
       restQuat: m.quaternion.clone(),
       outerCenter: info.center.clone(),
-      spin: !isPop && info.size >= SMALL ? (idx % 2 ? 1 : -1) * (1.1 + Math.random() * 0.4) : 0,
+      spin: !isPop && info.size >= SMALL && item !== lastItem ? (idx % 2 ? 1 : -1) * (1.1 + Math.random() * 0.4) : 0,
       dir,
       up,
       contact,
@@ -404,8 +406,8 @@ export function createAssembly({ outer, scene, phases, fx }) {
       zone,
       focusWorld: outer.localToWorld(contact.clone()),
       focusSize: info.size,
-      impact: phase.impact ?? {},
-      bounce: Math.min(0.05, 0.01 + info.size * 0.025),
+      impact: item === lastItem ? { dust: 0.35, sparks: 0, shake: 0.08 } : phase.impact ?? {}, // soft landing
+      bounce: item === lastItem ? 0 : Math.min(0.05, 0.01 + info.size * 0.025), // no rebound: it settles
       glowTargets,
       liveT: 0,
     });
