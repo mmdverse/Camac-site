@@ -296,8 +296,8 @@ export function createAssembly({ outer, scene, phases, fx }) {
     const slotIdx = slotOf.get(item);
     const start = T0 + slotIdx * slot;
     const share = isPop ? POP_FLIGHT : info.size < 0.5 ? MID_FLIGHT : FLIGHT;
-    // the last piece lands quickly: the sequence ends right after it (and the laser sign)
-    const dur = slot * (slotIdx === merged.length - 1 ? Math.min(share, 0.3) : share);
+    // the last piece lands slowly and softly: a cinematic finish after the laser sign
+    const dur = slot * (slotIdx === merged.length - 1 ? 0.9 : share);
 
     // Approach direction in outer space: from the side this piece is assigned to.
     // Fasteners travel as a train: they fly along one lane on the cabin's outer side, shared by the
@@ -636,7 +636,7 @@ export function createAssembly({ outer, scene, phases, fx }) {
           width: b.max.x - b.min.x,
           height: b.max.y - b.min.y,
         },
-        windowStart: lastStart - slot * 0.3,
+        windowStart: lastStart - slot * 1.55, // slow, cinematic cut
         windowEnd: lastStart - slot * 0.05,
       });
       laserEnd = lastStart - slot * 0.05;
