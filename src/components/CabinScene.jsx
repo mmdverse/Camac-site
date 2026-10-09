@@ -294,7 +294,7 @@ function CameraRig({ cabin, partBoxesRef }) {
     }
 
     // Sequence camera: one move per zone (set in assembly.js). The idle drift above takes precedence.
-    const zoneMove = !!fx.zone && !store.assembled;
+    const zoneMove = !!fx.zone && !store.assembled && !fx.laserView; // the laser's camera takes priority
     // The laser: the camera follows the cutting front (in world space) as the word is cut.
     const laserCam = fx.laserView ? fx.laserView(store.progress) : null;
     if (laserCam) {

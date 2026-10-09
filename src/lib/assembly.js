@@ -268,7 +268,10 @@ export function createAssembly({ outer, scene, phases, fx }) {
   // One global timeline: one slot per unit.
   const T0 = Math.min(...phases.map((p) => p.range[0]));
   const T1 = Math.max(...phases.map((p) => p.range[1]));
-  const SLOTS = Math.max(1, merged.length);
+  // A gap before the last piece: the laser cuts the word in it (the camera follows the cut), nothing else flies.
+  const LASER_GAP = 6;
+  const LAST_SLOT = Math.max(1, merged.length) - 1 + LASER_GAP;
+  const SLOTS = LAST_SLOT + 1;
   const slot = (T1 - T0) / SLOTS;
   const slotOf = new Map();
   const unitSize = new Map();
@@ -277,7 +280,7 @@ export function createAssembly({ outer, scene, phases, fx }) {
   const recOf = new Map();
   merged.forEach((u, si) => u.forEach((it, k) => {
     unitOf.set(it, u);
-    slotOf.set(it, si);
+    slotOf.set(it, si === merged.length - 1 ? LAST_SLOT : si);
     unitSize.set(it, u.length);
     memberOf.set(it, k);
   }));
@@ -297,7 +300,7 @@ export function createAssembly({ outer, scene, phases, fx }) {
     const start = T0 + slotIdx * slot;
     const share = isPop ? POP_FLIGHT : info.size < 0.5 ? MID_FLIGHT : FLIGHT;
     // the last piece lands slowly and softly: a cinematic finish after the laser sign
-    const dur = slot * (slotIdx === merged.length - 1 ? 0.9 : share);
+    const dur = slot * (slotIdx === LAST_SLOT ? 0.9 : share);
 
     // Approach direction in outer space: from the side this piece is assigned to.
     // Fasteners travel as a train: they fly along one lane on the cabin's outer side, shared by the
@@ -630,7 +633,8 @@ export function createAssembly({ outer, scene, phases, fx }) {
     }
     if (host) {
       const b = host.info.outerBox;
-      const lastStart = T0 + (merged.length - 1) * slot;
+      const lastStart = T0 + LAST_SLOT * slot;
+      const cutStart = T0 + (merged.length - 1) * slot + slot * 0.3; // the word is cut right after the previous piece
       laser = createLaserSign({
         fx,
         toWorld: (v) => outer.localToWorld(v.clone()),
@@ -641,7 +645,7 @@ export function createAssembly({ outer, scene, phases, fx }) {
           width: b.max.x - b.min.x,
           height: b.max.y - b.min.y,
         },
-        windowStart: lastStart - slot * 1.55, // slow, cinematic cut
+        windowStart: cutStart, // slow, cinematic cut
         windowEnd: lastStart - slot * 0.05,
       });
       laserEnd = lastStart - slot * 0.05;
