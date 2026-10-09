@@ -8,6 +8,7 @@ export const store = {
   progress: 0,        // 0..1 scroll progress across the experience
   hovered: null,      // part id under the pointer
   selected: null,     // part id focused by click
+  exploded: false,    // exploded-view toggle (button shown once assembled)
   assembled: false,   // true once the assembly sequence has completed (enables interaction)
   set(patch) {
     Object.assign(this, patch);

@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { brand } from '../data/cabins';
-import { chapterIndex } from '../lib/assembly';
+import { footer } from '../data/footer';
 import { store } from '../lib/store';
 import { fx } from '../lib/fx';
 import { useStore } from '../lib/useStore';
@@ -94,144 +94,101 @@ function useAutoScroll(ref) {
   }, [ref]);
 }
 
-/** Fades and lifts every [data-reveal] element as it enters the viewport. */
-function useReveals() {
-  useEffect(() => {
-    const els = gsap.utils.toArray('[data-reveal]');
-    const tweens = els.map((el) =>
-      gsap.fromTo(
-        el,
-        { opacity: 0, y: 36 },
-        {
-          opacity: 1,
-          y: 0,
-          duration: 1.1,
-          ease: 'power3.out',
-          scrollTrigger: { trigger: el, start: 'top 85%', toggleActions: 'play none none reverse' },
-        },
-      ),
-    );
-    return () => {
-      tweens.forEach((t) => {
-        t.scrollTrigger?.kill();
-        t.kill();
-      });
-    };
-  }, []);
+function FooterValue({ value }) {
+  return value ? <span>{value}</span> : <span className="sfooter-soon">به‌زودی</span>;
 }
 
 export default function Site({ cabin }) {
   const sequenceRef = useRef(null);
   useSequenceProgress(sequenceRef);
   useAutoScroll(sequenceRef);
-  useReveals();
 
-  const steps = cabin.assembly;
-  const chapter = useStore((s) => chapterIndex(s.progress, steps));
   const progress = useStore((s) => s.progress);
   const assembled = useStore((s) => s.assembled);
+  const exploded = useStore((s) => s.exploded);
   const started = useStore((s) => s.progress > 0.02);
-
-  const selected = useStore((s) => s.selected);
-  const hovered = useStore((s) => s.hovered);
-  const activeId = selected ?? hovered;
-  const activePart = cabin.parts.find((p) => p.id === activeId) ?? null;
 
   return (
     <div className="site">
       <header className={`topbar interactive ${assembled ? 'is-on' : ''}`}>
-        <a className="wordmark" href="#top" aria-label="CAMAC">
-          {brand.name}
+        <a className="wordmark" href="#top" aria-label={brand.name}>
+          <img src="/brand/logo.webp" alt={brand.name} width="44" height="44" />
         </a>
         <nav className="nav">
-          <a href="#parts">قطعات</a>
-          <a href="#specs">مشخصات</a>
           <a href="#contact">تماس</a>
         </nav>
       </header>
 
-      {/* Chapter HUD: appears once the sequence starts; shows what is being assembled. */}
-      <div className={`chapter ${started && !assembled ? 'is-on' : ''}`} aria-live="polite">
-        <div className="chapter-index">
-          {String(chapter + 1).padStart(2, '0')} / {String(steps.length).padStart(2, '0')}
-        </div>
-        <div className="chapter-label">{steps[chapter]?.label}</div>
+      {/* Progress bar: appears once the sequence starts. */}
+      <div className={`chapter ${started && !assembled ? 'is-on' : ''}`} aria-hidden="true">
         <div className="chapter-bar">
           <span style={{ transform: `scaleX(${Math.min(1, progress)})` }} />
         </div>
       </div>
+
+      {assembled && (
+        <button
+          type="button"
+          className="explode-btn interactive"
+          onClick={() => {
+            const next = !store.exploded;
+            fx.explodeT = next ? 1 : 0;
+            store.set({ exploded: next });
+          }}
+        >
+          {exploded ? 'جمع کردن' : 'اکسپلود ویو'}
+        </button>
+      )}
 
       {/* Finale copy: appears when the cabin is complete. */}
       <div className={`finale ${assembled ? 'is-on' : ''}`} aria-hidden={!assembled}>
         <p className="eyebrow">{cabin.name}</p>
         <h1>{brand.tagline}</h1>
         <p className="muted">متن نمونه — جایگزین با متن نهایی برند</p>
-        <div className="finale-cue">قطعات را از نزدیک ببینید ↓</div>
+        <div className="finale-cue">اطلاعات تماس در پایین صفحه ↓</div>
       </div>
 
       {/* Scroll track for the cinematic assembly. */}
       <div ref={sequenceRef} className="sequence" aria-hidden="true" />
 
-      <section id="parts" className="section parts">
-        <div className="parts-head" data-reveal>
-          <p className="eyebrow">ساختار کابین</p>
-          <h2>هر قطعه را از نزدیک ببینید</h2>
-          <p className="muted">روی قطعه‌ی مدل یا فهرست زیر حرکت کنید تا آن بخش برجسته شود.</p>
+      <footer id="contact" className="sfooter interactive">
+        <div className="sfooter-inner">
+          <div className="sfooter-brand">
+            <img src="/brand/logo.webp" alt={brand.name} width="96" height="96" />
+            <p>{brand.tagline}</p>
+          </div>
+
+          <div className="sfooter-col">
+            <h4>تماس</h4>
+            {footer.contact.map((row) => (
+              <div className="sfooter-row" key={row.label}>
+                <span>{row.label}</span>
+                <FooterValue value={row.value} />
+              </div>
+            ))}
+          </div>
+
+          <div className="sfooter-col">
+            <h4>شبکه‌های اجتماعی</h4>
+            {footer.socials.length > 0 ? (
+              <ul className="sfooter-social">
+                {footer.socials.map((s) => (
+                  <li key={s.label}>
+                    <a href={s.href} target="_blank" rel="noopener noreferrer">
+                      {s.label}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="sfooter-soon">به‌زودی</p>
+            )}
+          </div>
         </div>
-        <ul className="parts-list interactive" data-reveal>
-          {cabin.parts.map((p) => (
-            <li key={p.id}>
-              <button
-                type="button"
-                className={`part-chip ${activeId === p.id ? 'is-active' : ''}`}
-                onMouseEnter={() => store.set({ hovered: p.id })}
-                onMouseLeave={() => store.set({ hovered: null })}
-                onFocus={() => store.set({ hovered: p.id })}
-                onBlur={() => store.set({ hovered: null })}
-                onClick={() => store.set({ selected: store.selected === p.id ? null : p.id })}
-                aria-pressed={selected === p.id}
-              >
-                {p.label}
-              </button>
-            </li>
-          ))}
-        </ul>
-        <article className="part-card interactive" aria-live="polite" data-reveal>
-          {activePart ? (
-            <>
-              <h3>{activePart.title}</h3>
-              <p>{activePart.description}</p>
-              {activePart.placeholder && <span className="badge">متن موقت</span>}
-            </>
-          ) : (
-            <p className="muted">یک قطعه را انتخاب کنید.</p>
-          )}
-        </article>
-      </section>
 
-      <section id="specs" className="section specs interactive" data-reveal>
-        <p className="eyebrow">مشخصات</p>
-        <dl className="spec-grid">
-          {cabin.specs.map((s) => (
-            <div key={s.label}>
-              <dt>{s.label}</dt>
-              <dd>{s.value}</dd>
-            </div>
-          ))}
-        </dl>
-        <p className="muted small">مقادیر فنی هنوز تأیید نشده‌اند.</p>
-      </section>
-
-      <section id="contact" className="section contact interactive" data-reveal>
-        <p className="eyebrow">تماس</p>
-        <h2>کابین خود را طراحی کنید</h2>
-        <a className="cta" href="mailto:info@example.com">
-          درخواست مشاوره
-        </a>
-      </section>
-
-      <footer className="footer interactive">
-        <span>© {new Date().getFullYear()} {brand.name}</span>
+        <div className="sfooter-bottom">
+          <span>© {new Date().getFullYear()} {brand.name}</span>
+        </div>
       </footer>
     </div>
   );

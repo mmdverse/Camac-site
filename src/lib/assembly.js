@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { normalizeNodeName } from './nodeName';
+import { createLaserSign } from './laser';
 
 const clamp01 = (x) => Math.min(1, Math.max(0, x));
 const Y_AXIS = new THREE.Vector3(0, 1, 0);
@@ -226,6 +227,22 @@ export function createAssembly({ outer, scene, phases, fx }) {
     }
   }
 
+  // The last joint: the big yellow piece at the front, lowest one. It seats after everything else.
+  let lastItem = null;
+  for (const it of queue) {
+    const c = it.info.center;
+    if (!it.info.m.userData.yellow || it.info.size < SMALL || it.phase.camera === 'fixed' || c.z <= cabinC.z) continue;
+    if (!lastItem || c.y < lastItem.info.center.y) lastItem = it;
+  }
+  if (lastItem) {
+    for (const u of merged) {
+      const k = u.indexOf(lastItem);
+      if (k >= 0) u.splice(k, 1);
+    }
+    for (let i = merged.length - 1; i >= 0; i--) if (merged[i].length === 0) merged.splice(i, 1);
+    merged.push([lastItem]);
+  }
+
   // One global timeline: one slot per unit.
   const T0 = Math.min(...phases.map((p) => p.range[0]));
   const T1 = Math.max(...phases.map((p) => p.range[1]));
@@ -316,6 +333,11 @@ export function createAssembly({ outer, scene, phases, fx }) {
     const origin = zero.clone().applyMatrix4(toParent);
     const dir = dirOuter.clone().applyMatrix4(toParent).sub(origin);
     const up = new THREE.Vector3(0, 1, 0).applyMatrix4(toParent).sub(origin).normalize();
+    // exploded view: the piece moves away from the cabin's centre (a little upward)
+    const radialOuter = info.center.clone().sub(cabinC);
+    if (radialOuter.lengthSq() < 1e-6) radialOuter.set(0, 1, 0);
+    radialOuter.normalize().add(new THREE.Vector3(0, 0.2, 0)).normalize();
+    const explDir = radialOuter.applyMatrix4(toParent).sub(origin).normalize();
 
     // Contact point: on the face of the piece that meets the incoming direction.
     const contact = info.center.clone().addScaledVector(approach, -info.size * 0.3);
@@ -327,7 +349,8 @@ export function createAssembly({ outer, scene, phases, fx }) {
     if (!isPop && phase.camera !== 'fixed' && Math.random() < FOCUS_CHANCE) {
       focusMode = m.userData.yellow ? 'follow' : (phase.focus ?? (info.size >= (phase.focusMin ?? 0.45) ? 'wide' : 'orbit'));
     }
-    const zone = phase.camera === 'fixed' ? null : zoneOf(info.center);
+    // fasteners do not move the camera zone: a train stays in the step's main position
+    const zone = phase.camera === 'fixed' || isPop || item === lastItem ? null : zoneOf(info.center);
 
     // Glow while in the air: give each mesh its own material so only this piece lights up.
     const mats = Array.isArray(m.material) ? m.material : [m.material];
@@ -365,6 +388,9 @@ export function createAssembly({ outer, scene, phases, fx }) {
       trainTrack,
       camDir,
       trainLast: isPop && memberOf.get(item) === unitSize.get(item) - 1,
+      explDir,
+      explode: 0,
+      wasOut: false,
       fired: false,
       focused: false,
       focusMode: trainTrack ? 'follow' : focusMode,
@@ -457,9 +483,14 @@ export function createAssembly({ outer, scene, phases, fx }) {
   }
 
   let lastZone = null;
+  let lastExplodeT = 0;
 
   function update(progress, dt = 0, idle = false) {
     let viewRec = null;
+    laser?.update(progress, dt);
+    const eT = fx.explodeT ?? 0;
+    if (eT === 0 && lastExplodeT === 1) fx.addShake(0.6); // collapse: a small tremor
+    lastExplodeT = eT;
     let zoneNow = null;
     for (const rec of records) {
       let t;
@@ -480,7 +511,7 @@ export function createAssembly({ outer, scene, phases, fx }) {
       // Per-piece focus only during manual scrolling; the auto-scroll keeps the zone view.
       if (rec.focusMode && !rec.focused && t > 0 && (rec.trainTrack ? fx.autoScroll : !fx.autoScroll)) {
         rec.focused = true;
-        if (rec.trainTrack) fx.focusFollow?.(rec.trainTrack, rec.approach, rec.size, 0.2);
+        if (rec.trainTrack) fx.focusTrain?.(rec.trainTrack, rec.size);
         else if (rec.focusMode === 'follow') fx.focusFollow?.(track, rec.approach, rec.size);
         else fx.focusOn?.(rec.focusWorld, rec.focusSize, rec.approach, rec.focusMode, track);
       }
@@ -552,6 +583,15 @@ export function createAssembly({ outer, scene, phases, fx }) {
         }
       }
 
+      // Exploded view: a finished piece slides out along its own direction, and back in.
+      rec.explode += (eT - rec.explode) * (1 - Math.exp(-dt * 2.2));
+      if (rec.explode > 0.5) rec.wasOut = true;
+      if (rec.wasOut && rec.explode < 0.08) {
+        rec.wasOut = false;
+        emitImpact(rec); // the piece seats: sparks and dust
+      }
+      if (rec.explode > 0.001) m.position.addScaledVector(rec.explDir, rec.explode * (0.35 + rec.size * 0.7));
+
       if (rec.show > 0.01 && (!viewRec || rec.show > viewRec.show)) viewRec = rec;
 
       if (t >= 0.95 && rec.show < 0.02) {
@@ -568,17 +608,34 @@ export function createAssembly({ outer, scene, phases, fx }) {
       lastZone = zoneNow;
       fx.setZone(zoneView(zoneNow));
     }
-    // Exit: once the last fastener of a train has seated, the camera leaves on its own path.
-    for (const rec of records) {
-      if (!rec.trainLast) continue;
-      if (rec.liveT >= 1 && !rec.exited) {
-        rec.exited = true;
-        if (fx.autoScroll) fx.focusOn?.(rec.m.getWorldPosition(new THREE.Vector3()), rec.size, rec.camDir, 'wide', null);
-      } else if (rec.liveT < 0.98) {
-        rec.exited = false;
-      }
-    }
     applyView(viewRec);
+  }
+
+  // The CAMAC sign is etched on the front face just before the last joint.
+  let laser = null;
+  if (lastItem) {
+    let yMin = Infinity;
+    let yMax = -Infinity;
+    let zMax = -Infinity;
+    let xSum = 0;
+    for (const it of queue) {
+      const c = it.info.center;
+      yMin = Math.min(yMin, c.y);
+      yMax = Math.max(yMax, c.y);
+      zMax = Math.max(zMax, c.z);
+      xSum += c.x;
+    }
+    const lastStart = T0 + (merged.length - 1) * slot;
+    laser = createLaserSign({
+      fx,
+      cx: xSum / Math.max(1, queue.length),
+      cy: (yMin + yMax) / 2,
+      zFace: zMax,
+      height: (yMax - yMin) * 0.45,
+      windowStart: lastStart - slot * 0.8,
+      windowEnd: lastStart - slot * 0.05,
+    });
+    outer.add(laser.group);
   }
 
   return { update, phases: phaseInfo, count: records.length, scrollMap: { toScroll, toProgress }, stops };

@@ -1,5 +1,6 @@
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { ContactShadows, useGLTF } from '@react-three/drei';
 import { EffectComposer, Bloom, Vignette } from '@react-three/postprocessing';
 import * as THREE from 'three';
@@ -70,6 +71,7 @@ export default function CabinScene({ cabin, onModelReady }) {
       )}
       <ScanRing />
       <CameraRig cabin={cabin} partBoxesRef={partBoxesRef} />
+      <OrbitRig />
       <Post />
     </Canvas>
   );
@@ -206,6 +208,31 @@ function Lights() {
 }
 
 /**
+ * Once the cabin is complete (and nothing is selected), the visitor can turn it: orbit controls take the camera.
+ */
+function OrbitRig() {
+  const { camera, gl } = useThree();
+  const controls = useMemo(() => {
+    const c = new OrbitControls(camera, gl.domElement);
+    c.enableDamping = true;
+    c.dampingFactor = 0.08;
+    c.enablePan = false;
+    c.minDistance = 1.6;
+    c.maxDistance = 6;
+    c.target.set(0, 0, 0);
+    c.enabled = false;
+    return c;
+  }, [camera, gl]);
+  useEffect(() => () => controls.dispose(), [controls]);
+  useFrame(() => {
+    const on = store.assembled && !store.selected;
+    if (controls.enabled !== on) controls.enabled = on;
+    if (on) controls.update();
+  });
+  return null;
+}
+
+/**
  * Cinematic camera. Path follows scroll progress; impacts add a decaying shake.
  * A click on a part (after assembly) focuses that part.
  */
@@ -295,7 +322,16 @@ function CameraRig({ cabin, partBoxesRef }) {
         const u = Math.min(1, f.t / f.hold);
         let camP;
         let fov;
-        if (f.mode === 'follow') {
+        if (f.mode === 'train') {
+          // A fastener group: the camera stays where it is and only swings a little toward the group.
+          const rel = wantPos.clone().sub(wantTarget);
+          const toGroup = Math.atan2(f.pos.x - wantTarget.x, f.pos.z - wantTarget.z);
+          const sw = THREE.MathUtils.clamp(toGroup - Math.atan2(rel.x, rel.z), -0.3, 0.3);
+          rel.applyAxisAngle(UP, sw * focusW);
+          wantPos = wantTarget.clone().add(rel);
+          wantTarget.lerp(f.pos, focusW * 0.6);
+          camP = null;
+        } else if (f.mode === 'follow') {
           const swing = f.sweep ? Math.sin(f.t * 0.45) * f.sweep : 0;
           const dir = f.dir.clone().applyAxisAngle(UP, swing);
           camP = f.pos.clone().addScaledVector(dir, f.dist);
@@ -311,9 +347,11 @@ function CameraRig({ cabin, partBoxesRef }) {
           camP.y += 0.1;
           fov = 30;
         }
-        wantTarget.lerp(f.pos, focusW);
-        wantPos.lerp(camP, focusW);
-        wantFov += (fov - wantFov) * focusW;
+        if (camP) {
+          wantTarget.lerp(f.pos, focusW);
+          wantPos.lerp(camP, focusW);
+          wantFov += (fov - wantFov) * focusW;
+        }
       }
     }
 
@@ -347,15 +385,18 @@ function CameraRig({ cabin, partBoxesRef }) {
       (Math.sin(t * 53.0 + 2.1) * 0.5 + (Math.random() - 0.5) * 0.6) * amp * 0.7,
     );
 
-    camera.position.copy(cur.pos).add(shakeOffset);
-    camera.lookAt(cur.target.clone().add(shakeOffset.clone().multiplyScalar(2.5)));
+    const orbitOwns = store.assembled && !store.selected; // once complete, orbit controls own the camera
+    if (!orbitOwns) {
+      camera.position.copy(cur.pos).add(shakeOffset);
+      camera.lookAt(cur.target.clone().add(shakeOffset.clone().multiplyScalar(2.5)));
+    }
     // point in front of the camera where an idle piece is presented
     const fwd = new THREE.Vector3();
     camera.getWorldDirection(fwd);
     fx.presentWorld = camera.position.clone().addScaledVector(fwd, 1.5);
     fx.camPos = camera.position.clone();
 
-    if (Math.abs(camera.fov - cur.fov) > 0.01) {
+    if (!orbitOwns && Math.abs(camera.fov - cur.fov) > 0.01) {
       camera.fov = cur.fov;
       camera.updateProjectionMatrix();
     }

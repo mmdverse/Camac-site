@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
 import { useProgress } from '@react-three/drei';
 import Site from './components/Site';
 import { getCabin, brand } from './data/cabins';
@@ -24,16 +24,43 @@ export default function App() {
   );
 }
 
+/**
+ * Loading screen: only the brand video on black, with a white glitch bar along the bottom edge.
+ * It fades out once the 3D model is ready and the video has finished.
+ */
 function Loader({ done, brand }) {
   const { progress } = useProgress();
-  const hidden = done;
+  const [videoEnded, setVideoEnded] = useState(false);
+  const [unmounted, setUnmounted] = useState(false);
+  const hidden = done && videoEnded;
+
+  useEffect(() => {
+    if (!hidden) return undefined;
+    const t = setTimeout(() => setUnmounted(true), 1200);
+    return () => clearTimeout(t);
+  }, [hidden]);
+
+  if (unmounted) return null;
+
+  const finish = () => setVideoEnded(true);
   return (
     <div className={`loader ${hidden ? 'is-hidden' : ''}`} role="status" aria-live="polite">
-      <div className="loader-brand">{brand}</div>
+      <video
+        className="loader-video"
+        autoPlay
+        muted
+        playsInline
+        preload="auto"
+        aria-label={brand}
+        onEnded={finish}
+        onError={finish}
+      >
+        <source src="/brand/loading.webm" type="video/webm" />
+        <source src="/brand/loading.mp4" type="video/mp4" />
+      </video>
       <div className="loader-bar">
-        <span style={{ transform: `scaleX(${Math.max(0.05, progress / 100)})` }} />
+        <span style={{ transform: `scaleX(${Math.max(0.02, progress / 100)})` }} />
       </div>
-      <div className="loader-pct">{Math.round(progress)}%</div>
     </div>
   );
 }
