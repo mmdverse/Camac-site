@@ -40,7 +40,7 @@ export function createLaserSign({ fx, panel, windowStart, windowEnd }) {
   const widest = Math.max(...probe);
   const capH1 = letterGeometry('A', 1, 0).boundingBox.max.y - letterGeometry('A', 1, 0).boundingBox.min.y;
   const stackUnits = capH1 * (PITCH * (WORD.length - 1) + 1);
-  const k = Math.min((panel.height * 0.8) / stackUnits, (panel.width * 0.55) / widest);
+  const k = Math.min((panel.height * 0.8) / stackUnits, (panel.width * 0.7) / widest);
   const capH = capH1 * k;
   const depth = capH * 0.05;
 

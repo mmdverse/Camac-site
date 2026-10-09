@@ -12,11 +12,12 @@ const POP_FLIGHT = 0.85; // share of the slot used by a fastener's pop-in
 const MID_FLIGHT = 0.7; // share of the slot used by a medium piece's flight (softer than big ones)
 const TRAIN_GAP = 0.15; // share of a slot between two fasteners of one train
 const TRAIN_FLIGHT = 0.55; // share of a slot each fastener spends flying in
-const TRAIN_WEIGHT = 5; // slow motion: the train takes much longer to scroll through // a fastener train takes longer to scroll through
+const TRAIN_WEIGHT = 1.5; // slow motion: the train takes much longer to scroll through // a fastener train takes longer to scroll through
 const TRAIN_REACH = 1.2; // how far out along the lane a fastener starts
 const FOCUS_CHANCE = 0.3; // share of medium/big pieces that get their own camera focus (manual scroll only)
 const STOP_AT = 0.35; // where in its flight an auto-scroll stop lands
 const GLOW = new THREE.Color('#ffd27a');
+const LASER_HOST = 'Panel_R_2'; // the grey front panel beside the door where CAMAC is engraved
 // Fastener regions are finished one at a time, in this order.
 const ZONE_ORDER = ['bottom', 'front', 'right', 'back', 'left', 'top'];
 
@@ -193,6 +194,10 @@ export function createAssembly({ outer, scene, phases, fx }) {
     it.zr = ZONE_ORDER.indexOf(zoneOf(it.info.center));
     it.ang = Math.atan2(it.info.center.x - cabinC.x, it.info.center.z - cabinC.z);
     if (it.info.size < SMALL) it.layer = it.zr; // grouping key: a unit never mixes regions
+  }
+  // Only the fasteners under the cabin are animated. The others are already installed with the cabin.
+  for (let i = queue.length - 1; i >= 0; i--) {
+    if (queue[i].info.size < SMALL && queue[i].zr !== 0) queue.splice(i, 1);
   }
   queue.sort((x, y) => {
     const xs = x.info.size < SMALL ? 1 : 0;
@@ -627,16 +632,20 @@ export function createAssembly({ outer, scene, phases, fx }) {
   // The CAMAC sign is etched on the front face just before the last joint.
   let laser = null;
   if (lastItem) {
-    // The host panel: the nearest big piece on the front side, next to the last joint.
-    const lc = lastItem.info.center;
-    let host = null;
-    let hostD = Infinity;
-    for (const it of queue) {
-      if (it === lastItem || it.info.size < 0.5 || it.info.center.z <= cabinC.z) continue;
-      const d = it.info.center.distanceTo(lc);
-      if (d < hostD) {
-        hostD = d;
-        host = it;
+    // The host panel: the grey front panel beside the door opening (the one marked for the sign).
+    const hostName = normalizeNodeName(LASER_HOST);
+    let host = queue.find((it) => normalizeNodeName(it.info.m.name) === hostName) ?? null;
+    if (!host) {
+      // fallback: the nearest non-yellow big piece on the front side
+      const lc = lastItem.info.center;
+      let hostD = Infinity;
+      for (const it of queue) {
+        if (it === lastItem || it.info.size < 0.5 || it.info.m.userData.yellow || it.info.center.z <= cabinC.z) continue;
+        const d = it.info.center.distanceTo(lc);
+        if (d < hostD) {
+          hostD = d;
+          host = it;
+        }
       }
     }
     if (host) {
