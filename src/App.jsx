@@ -2,6 +2,7 @@ import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
 import { useProgress } from '@react-three/drei';
 import Site from './components/Site';
 import SplashCursor from './components/SplashCursor';
+import useScrollSplash from './components/ScrollSplash';
 import { getCabin, brand } from './data/cabins';
 
 // Scene (three.js + R3F) is code-split so the DOM shell paints before the WebGL bundle.
@@ -11,6 +12,7 @@ export default function App() {
   const cabin = getCabin('pro-v6');
   const [modelReady, setModelReady] = useState(false);
   const onModelReady = useCallback(() => setModelReady(true), []);
+  useScrollSplash();
 
   return (
     <>
