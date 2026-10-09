@@ -1,6 +1,8 @@
 'use client';
 import { useEffect, useRef } from 'react';
 
+const YELLOW_GAIN = 0.45; // colour strength of the fixed (non-rainbow) colour; higher = more vivid
+
 function SplashCursor({
   SIM_RESOLUTION = 128,
   DYE_RESOLUTION = 1440,
@@ -890,7 +892,7 @@ function SplashCursor({
       const r = parseInt(val.slice(0, 2), 16) / 255;
       const g = parseInt(val.slice(2, 4), 16) / 255;
       const b = parseInt(val.slice(4, 6), 16) / 255;
-      return { r: r * 0.15, g: g * 0.15, b: b * 0.15 };
+      return { r: r * YELLOW_GAIN, g: g * YELLOW_GAIN, b: b * YELLOW_GAIN }; // the fixed colour's strength (the original uses 0.15)
     }
 
     function generateColor() {
