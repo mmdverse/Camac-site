@@ -58,6 +58,46 @@ const FRAG = `
   }`;
 
 /**
+ * Polished metal for the letters, lit by the scene like the rest of the cabin. The cut (hidden below the
+ * cut line) and the hot edge are added on top of the standard shading.
+ */
+function cutMaterial(uniforms) {
+  const mat = new THREE.MeshPhysicalMaterial({
+    color: '#d6ac4e',
+    metalness: 0.92,
+    roughness: 0.22,
+    clearcoat: 0.7,
+    clearcoatRoughness: 0.12,
+  });
+  mat.onBeforeCompile = (shader) => {
+    Object.assign(shader.uniforms, uniforms);
+    shader.vertexShader = shader.vertexShader
+      .replace('#include <common>', '#include <common>\nvarying vec3 vLp;')
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvLp = position;');
+    shader.fragmentShader = shader.fragmentShader
+      .replace(
+        '#include <common>',
+        `#include <common>
+        uniform float uCut; uniform float uTop; uniform float uBottom; uniform float uGlow; uniform float uFalloff;
+        varying vec3 vLp;`,
+      )
+      .replace(
+        '#include <clipping_planes_fragment>',
+        `#include <clipping_planes_fragment>
+        float cutY = mix(uTop, uBottom, uCut);
+        if (vLp.y < cutY - 0.0005) discard;
+        float edgeG = exp(-abs(vLp.y - cutY) * uFalloff);`,
+      )
+      .replace(
+        '#include <emissivemap_fragment>',
+        `#include <emissivemap_fragment>
+        totalEmissiveRadiance += vec3(1.0, 0.82, 0.42) * 2.2 * edgeG * uGlow;`,
+      );
+  };
+  return mat;
+}
+
+/**
  * panel: { cx, cy, zFace, width, height } in outer units. The sign sits on the front face (zFace).
  * windowStart / windowEnd: progress range in which the whole word is cut.
  * toWorld: converts an outer-space point to world space (the camera works in world space).
@@ -94,7 +134,7 @@ export function createLaserSign({ fx, toWorld, panel, windowStart, windowEnd }) 
       uFalloff: { value: 35 / Math.max(capH, 1e-4) },
       uColor: { value: new THREE.Color('#c9a24a') },
     };
-    const material = new THREE.ShaderMaterial({ uniforms, vertexShader: VERT, fragmentShader: FRAG });
+    const material = cutMaterial(uniforms);
     const mesh = new THREE.Mesh(geometry, material);
     const top = stackTop / 2 - i * PITCH * capH;
     mesh.position.y = top;
