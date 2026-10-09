@@ -184,7 +184,6 @@ export default function Site({ cabin }) {
   const sequenceRef = useRef(null);
   const [showTop, setShowTop] = useState(false);
   const sequence = useStore((s) => s.sequence);
-  const assembled = useStore((s) => s.assembled);
   // the back-to-top button follows completion right away, not only on the next scroll
   useEffect(() => {
     setShowTop(window.scrollY > 400 && assembled);
