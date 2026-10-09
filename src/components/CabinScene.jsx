@@ -273,7 +273,8 @@ function CameraRig({ cabin, partBoxesRef }) {
     const moved = Math.abs(now - hold.lastP) > 1e-5;
     hold.lastP = now;
     hold.idle = moved ? 0 : hold.idle + dt;
-    if (hold.idle > 0.4) {
+    // A sequence zone (laser, last piece, fastener region) owns the camera; the idle drift only applies without one.
+    if (hold.idle > 0.4 && !fx.zone && !store.assembled) {
       if (!hold.pos) {
         hold.pos = cur.pos.clone();
         hold.target = cur.target.clone();
@@ -293,7 +294,7 @@ function CameraRig({ cabin, partBoxesRef }) {
     }
 
     // Sequence camera: one move per zone (set in assembly.js). The idle drift above takes precedence.
-    const zoneMove = !!fx.zone && !store.assembled && hold.idle <= 0.4;
+    const zoneMove = !!fx.zone && !store.assembled;
     if (fx.zone !== zt.zone) {
       zt.zone = fx.zone;
       zt.from.copy(cur.pos);
