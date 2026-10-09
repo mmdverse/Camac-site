@@ -11,7 +11,7 @@ const POP_FLIGHT = 0.85; // share of the slot used by a fastener's pop-in
 const MID_FLIGHT = 0.7; // share of the slot used by a medium piece's flight (softer than big ones)
 const TRAIN_GAP = 0.15; // share of a slot between two fasteners of one train
 const TRAIN_FLIGHT = 0.55; // share of a slot each fastener spends flying in
-const TRAIN_WEIGHT = 3.5; // a fastener train takes longer to scroll through
+const TRAIN_WEIGHT = 5; // slow motion: the train takes much longer to scroll through // a fastener train takes longer to scroll through
 const TRAIN_REACH = 1.2; // how far out along the lane a fastener starts
 const FOCUS_CHANCE = 0.3; // share of medium/big pieces that get their own camera focus (manual scroll only)
 const STOP_AT = 0.35; // where in its flight an auto-scroll stop lands
@@ -364,6 +364,7 @@ export function createAssembly({ outer, scene, phases, fx }) {
       trainW,
       trainTrack,
       camDir,
+      trainLast: isPop && memberOf.get(item) === unitSize.get(item) - 1,
       fired: false,
       focused: false,
       focusMode: trainTrack ? 'follow' : focusMode,
@@ -479,7 +480,7 @@ export function createAssembly({ outer, scene, phases, fx }) {
       // Per-piece focus only during manual scrolling; the auto-scroll keeps the zone view.
       if (rec.focusMode && !rec.focused && t > 0 && (rec.trainTrack ? fx.autoScroll : !fx.autoScroll)) {
         rec.focused = true;
-        if (rec.trainTrack) fx.focusFollow?.(rec.trainTrack, rec.camDir, rec.size, 0.7);
+        if (rec.trainTrack) fx.focusFollow?.(rec.trainTrack, rec.approach, rec.size, 0.2);
         else if (rec.focusMode === 'follow') fx.focusFollow?.(track, rec.approach, rec.size);
         else fx.focusOn?.(rec.focusWorld, rec.focusSize, rec.approach, rec.focusMode, track);
       }
@@ -566,6 +567,16 @@ export function createAssembly({ outer, scene, phases, fx }) {
     if (zoneNow && zoneNow !== lastZone) {
       lastZone = zoneNow;
       fx.setZone(zoneView(zoneNow));
+    }
+    // Exit: once the last fastener of a train has seated, the camera leaves on its own path.
+    for (const rec of records) {
+      if (!rec.trainLast) continue;
+      if (rec.liveT >= 1 && !rec.exited) {
+        rec.exited = true;
+        if (fx.autoScroll) fx.focusOn?.(rec.m.getWorldPosition(new THREE.Vector3()), rec.size, rec.camDir, 'wide', null);
+      } else if (rec.liveT < 0.98) {
+        rec.exited = false;
+      }
     }
     applyView(viewRec);
   }

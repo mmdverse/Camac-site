@@ -14,9 +14,6 @@ const BG = '#cfccc4';
 const GROUND = '#b7b3a9';
 const ORIGIN = new THREE.Vector3(0, 0, 0);
 const UP = new THREE.Vector3(0, 1, 0);
-// The stage's backdrop sweep is a double-sided floor at y ≈ -1. A camera below it would look up through
-// that sheet and lose the cabin, so the camera is kept above it.
-const FLOOR_CLEAR = -0.6;
 
 const isMobile = typeof window !== 'undefined' && window.matchMedia('(max-width: 768px)').matches;
 
@@ -121,6 +118,12 @@ function StageSet() {
   useEffect(() => {
     scene.traverse((o) => {
       if (o.isMesh && o.name.startsWith('LED_Seam')) o.material = ledMaterial;
+      // The backdrop sweep is front-side only: its floor faces up and its walls face into the room,
+      // so from below the floor no longer hides the cabin.
+      if (o.isMesh && o.name === 'Cyclorama') {
+        o.material = o.material.clone();
+        o.material.side = THREE.FrontSide;
+      }
     });
   }, [scene, ledMaterial]);
   useFrame((state) => {
@@ -344,7 +347,6 @@ function CameraRig({ cabin, partBoxesRef }) {
       (Math.sin(t * 53.0 + 2.1) * 0.5 + (Math.random() - 0.5) * 0.6) * amp * 0.7,
     );
 
-    cur.pos.y = Math.max(cur.pos.y, FLOOR_CLEAR);
     camera.position.copy(cur.pos).add(shakeOffset);
     camera.lookAt(cur.target.clone().add(shakeOffset.clone().multiplyScalar(2.5)));
     // point in front of the camera where an idle piece is presented
