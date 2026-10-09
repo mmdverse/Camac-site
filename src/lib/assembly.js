@@ -540,6 +540,13 @@ export function createAssembly({ outer, scene, phases, fx }) {
         t = clamp01((progress - rec.start) / rec.dur);
       }
       if (rec.zone && t > 0 && rec.motion !== 'train') zoneNow = rec.zone; // the zone of the latest big piece that has started
+      // Scroll drives the piece, but it never hangs in the air: when scrolling stops mid-flight the piece
+      // lands on its own; when scrolling resumes it follows the scroll again, easing (no jump).
+      const tScroll = t;
+      const landing = idle && tScroll > 0 && tScroll < 1;
+      const tPrev = rec.tDisp ?? 0;
+      rec.tDisp = tPrev + ((landing ? 1 : tScroll) - tPrev) * (1 - Math.exp(-dt * (landing ? 1.5 : 10)));
+      t = rec.tDisp;
       const m = rec.m;
       rec.liveT = t;
       const track = () => (rec.liveT >= 1 ? null : m.getWorldPosition(new THREE.Vector3()));

@@ -26,7 +26,7 @@ button { font: inherit; color: inherit; }
   left: 0;
   right: 0;
   height: 100vh; /* fallback */
-  height: 100dvh; /* follows the mobile address bar */
+  height: 100lvh; /* largest viewport: the address bar does not resize the canvas */
   z-index: 0;
   background: var(--bg);
   overflow: hidden;
@@ -299,7 +299,7 @@ body { background: var(--bg); }
   100% { clip-path: inset(0 0 0 0); transform: none; }
 }
 
-/* ---------- Footer: minimal, centred, icon-led ---------- */
+/* ---------- Footer: minimal, centred, plain text with icons ---------- */
 .sfooter {
   position: relative; z-index: 2;
   padding: 72px 8vw 28px;
@@ -310,23 +310,20 @@ body { background: var(--bg); }
 .sfooter-logo { display: block; width: 110px; height: 110px; object-fit: contain; background: none; padding: 0; }
 .sfooter-contact {
   list-style: none; margin: 0; padding: 0;
-  display: flex; flex-wrap: wrap; justify-content: center; gap: 12px;
-  max-width: 880px;
+  display: flex; flex-direction: column; align-items: center; gap: 14px;
+  text-align: center;
 }
-.sfooter-contact li.is-wide { flex-basis: 100%; display: flex; justify-content: center; }
-.sfooter-social { list-style: none; margin: 0; padding: 0; display: flex; gap: 12px; }
+.sfooter-social { list-style: none; margin: 0; padding: 0; display: flex; gap: 22px; }
 .sfooter-item {
   display: inline-flex; align-items: center; gap: 10px;
-  padding: 9px 18px 9px 14px; border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, .09);
-  color: #ece9df; font-size: 14px; line-height: 1.6;
-  transition: border-color .3s var(--ease), background .3s var(--ease), color .3s var(--ease);
+  color: #ece9df; font-size: 15px; line-height: 1.7;
+  transition: color .3s var(--ease);
 }
-a.sfooter-item:hover { border-color: rgba(224, 168, 0, .7); background: rgba(224, 168, 0, .08); }
-.sfooter-item.is-wide, .sfooter-contact li.is-wide .sfooter-item { color: #9a968a; border-color: transparent; text-align: center; }
+a.sfooter-item:hover { color: #e0a800; }
 .sfooter-ico { display: inline-flex; width: 18px; height: 18px; color: #e0a800; flex: none; }
 .sfooter-ico svg { width: 100%; height: 100%; }
 .sfooter-text { direction: auto; unicode-bidi: plaintext; }
+.sfooter-contact li.is-wide .sfooter-item { color: #9a968a; font-size: 14px; max-width: 46ch; text-align: center; }
 .sfooter-bottom {
   margin-top: 48px; padding-top: 22px; width: 100%;
   border-top: 1px solid rgba(255, 255, 255, .06);
@@ -334,10 +331,8 @@ a.sfooter-item:hover { border-color: rgba(224, 168, 0, .7); background: rgba(224
 }
 @media (max-width: 768px) {
   .sfooter { padding: 52px 6vw 24px; }
-  .sfooter-contact { gap: 10px; }
-  .sfooter-item { font-size: 13px; padding: 8px 14px 8px 12px; }
+  .sfooter-item { font-size: 14px; }
 }
-
 @media (prefers-reduced-motion: reduce) {
   .loader-bar { animation: none; }
 }
