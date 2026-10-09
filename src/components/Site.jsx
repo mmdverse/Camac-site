@@ -94,8 +94,37 @@ function useAutoScroll(ref) {
   }, [ref]);
 }
 
-function FooterValue({ value }) {
-  return value ? <span dir="auto">{value}</span> : <span className="sfooter-soon">به‌زودی</span>;
+const ICON_PATHS = {
+  pin: <><path d="M12 21s-6.5-5.7-6.5-11a6.5 6.5 0 0 1 13 0c0 5.3-6.5 11-6.5 11z" /><circle cx="12" cy="10" r="2.3" /></>,
+  globe: <><circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18" /></>,
+  mail: <><rect x="3" y="5.5" width="18" height="13" rx="2.2" /><path d="M3.5 7l8.5 6 8.5-6" /></>,
+  phone: <path d="M6.5 3.5h3l1.5 4.2-2.1 1.4a10.5 10.5 0 0 0 5.1 5.1l1.4-2.1 4.2 1.5v3a2 2 0 0 1-2.2 2A15.5 15.5 0 0 1 4.5 5.7a2 2 0 0 1 2-2.2z" />,
+  mobile: <><rect x="7" y="2.5" width="10" height="19" rx="2.2" /><path d="M11 18.5h2" /></>,
+  clock: <><circle cx="12" cy="12" r="9" /><path d="M12 7.5V12l3 2" /></>,
+  instagram: <><rect x="3.5" y="3.5" width="17" height="17" rx="5" /><circle cx="12" cy="12" r="4" /><circle cx="17.2" cy="6.8" r="0.9" /></>,
+};
+
+function Icon({ name }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      {ICON_PATHS[name]}
+    </svg>
+  );
+}
+
+function FooterItem({ row }) {
+  if (!row.value) return null;
+  const content = (
+    <>
+      <span className="sfooter-ico"><Icon name={row.icon} /></span>
+      <span className="sfooter-text" dir="auto">{row.value}</span>
+    </>
+  );
+  return row.href ? (
+    <a className="sfooter-item" href={row.href} aria-label={row.label} title={row.label}>{content}</a>
+  ) : (
+    <span className="sfooter-item" aria-label={row.label} title={row.label}>{content}</span>
+  );
 }
 
 export default function Site({ cabin }) {
@@ -116,50 +145,33 @@ export default function Site({ cabin }) {
         </div>
       </div>
 
-      {/* Finale copy: appears when the cabin is complete. */}
-      <div className={`finale ${assembled ? 'is-on' : ''}`} aria-hidden={!assembled}>
-        <p className="eyebrow">{cabin.name}</p>
-        <h1>{brand.tagline}</h1>
-        <p className="muted">متن نمونه — جایگزین با متن نهایی برند</p>
-        <div className="finale-cue">اطلاعات تماس در پایین صفحه ↓</div>
-      </div>
-
       {/* Scroll track for the cinematic assembly. */}
       <div ref={sequenceRef} className="sequence" aria-hidden="true" />
 
       <footer id="contact" className="sfooter interactive">
         <div className="sfooter-inner">
-          <div className="sfooter-brand">
-            <img src="/brand/logo.webp" alt={brand.name} width="120" height="120" />
-            <p>{brand.tagline}</p>
-          </div>
+          <img className="sfooter-logo" src="/brand/logo.webp" alt={brand.name} width="110" height="110" />
 
-          <div className="sfooter-col">
-            <h4>تماس</h4>
+          <ul className="sfooter-contact">
             {footer.contact.map((row) => (
-              <div className="sfooter-row" key={row.label}>
-                <span>{row.label}</span>
-                <FooterValue value={row.value} />
-              </div>
+              <li key={row.label} className={row.wide ? 'is-wide' : undefined}>
+                <FooterItem row={row} />
+              </li>
             ))}
-          </div>
+          </ul>
 
-          <div className="sfooter-col">
-            <h4>شبکه‌های اجتماعی</h4>
-            {footer.socials.length > 0 ? (
-              <ul className="sfooter-social">
-                {footer.socials.map((s) => (
-                  <li key={s.label}>
-                    <a href={s.href} target="_blank" rel="noopener noreferrer">
-                      {s.label}: {s.handle ?? ''}
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="sfooter-soon">به‌زودی</p>
-            )}
-          </div>
+          {footer.socials.length > 0 && (
+            <ul className="sfooter-social">
+              {footer.socials.map((s) => (
+                <li key={s.label}>
+                  <a className="sfooter-item" href={s.href} target="_blank" rel="noopener noreferrer" aria-label={s.label} title={s.label}>
+                    <span className="sfooter-ico"><Icon name={s.icon} /></span>
+                    <span className="sfooter-text" dir="auto">{s.value}</span>
+                  </a>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
 
         <div className="sfooter-bottom">
