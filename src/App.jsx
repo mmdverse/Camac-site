@@ -30,9 +30,8 @@ export default function App() {
  */
 function Loader({ done, brand }) {
   const { progress } = useProgress();
-  const [videoEnded, setVideoEnded] = useState(false);
   const [unmounted, setUnmounted] = useState(false);
-  const hidden = done && videoEnded;
+  const hidden = done; // the real load decides when the screen goes, not the video length
 
   useEffect(() => {
     if (!hidden) return undefined;
@@ -42,7 +41,6 @@ function Loader({ done, brand }) {
 
   if (unmounted) return null;
 
-  const finish = () => setVideoEnded(true);
   return (
     <div className={`loader ${hidden ? 'is-hidden' : ''}`} role="status" aria-live="polite">
       <video
@@ -52,8 +50,7 @@ function Loader({ done, brand }) {
         playsInline
         preload="auto"
         aria-label={brand}
-        onEnded={finish}
-        onError={finish}
+        onError={() => setUnmounted(true)}
       >
         <source src="/brand/loading.webm" type="video/webm" />
         <source src="/brand/loading.mp4" type="video/mp4" />

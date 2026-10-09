@@ -191,13 +191,16 @@ export function createAssembly({ outer, scene, phases, fx }) {
   // Big pieces first. Fasteners: phase by phase, then region by region (ZONE_ORDER), then from the
   // bottom of each region upward, then around the cabin. A region is finished before the next starts.
   for (const it of queue) {
-    it.zr = ZONE_ORDER.indexOf(zoneOf(it.info.center));
+    // floor fasteners (Floor_*) are the bottom region, even when they sit right at the floor edge
+    it.region = it.info.size < SMALL && /^floor/i.test(it.info.m.name) ? 'bottom' : zoneOf(it.info.center);
+    it.zr = ZONE_ORDER.indexOf(it.region);
     it.ang = Math.atan2(it.info.center.x - cabinC.x, it.info.center.z - cabinC.z);
     if (it.info.size < SMALL) it.layer = it.zr; // grouping key: a unit never mixes regions
   }
   // Only the fasteners under the cabin are animated. The others are already installed with the cabin.
+  const staticPops = [];
   for (let i = queue.length - 1; i >= 0; i--) {
-    if (queue[i].info.size < SMALL && queue[i].zr !== 0) queue.splice(i, 1);
+    if (queue[i].info.size < SMALL && queue[i].zr !== 0) staticPops.unshift(queue.splice(i, 1)[0]);
   }
   queue.sort((x, y) => {
     const xs = x.info.size < SMALL ? 1 : 0;
@@ -356,7 +359,7 @@ export function createAssembly({ outer, scene, phases, fx }) {
       focusMode = m.userData.yellow ? 'follow' : (phase.focus ?? (info.size >= (phase.focusMin ?? 0.45) ? 'wide' : 'orbit'));
     }
     // fasteners do not move the camera zone: a train stays in the step's main position
-    const zone = phase.camera === 'fixed' || item === lastItem ? null : zoneOf(info.center);
+    const zone = phase.camera === 'fixed' || item === lastItem ? null : isPop ? item.region : zoneOf(info.center);
 
     // Glow while in the air: give each mesh its own material so only this piece lights up.
     const mats = Array.isArray(m.material) ? m.material : [m.material];
@@ -414,6 +417,23 @@ export function createAssembly({ outer, scene, phases, fx }) {
 
     recOf.set(item, records[records.length - 1]);
     m.visible = false;
+  });
+
+  // Fasteners outside the bottom region are not animated. Each one is hidden until the nearest
+  // big piece it belongs to has landed, then it simply shows in place.
+  const bigRecs = records.filter((r) => r.motion === 'fly');
+  const statics = staticPops.map((it) => {
+    let best = null;
+    let bd = Infinity;
+    for (const r of bigRecs) {
+      const d = r.outerCenter.distanceToSquared(it.info.center);
+      if (d < bd) {
+        bd = d;
+        best = r;
+      }
+    }
+    it.info.m.visible = false;
+    return { m: it.info.m, at: best ? best.start + best.dur : 0 };
   });
 
   // Scroll map: the scroll distance per unit of progress is larger over medium and small pieces,
@@ -506,6 +526,7 @@ export function createAssembly({ outer, scene, phases, fx }) {
   function update(progress, dt = 0, idle = false) {
     let viewRec = null;
     laser?.update(progress, dt);
+    for (const st of statics) st.m.visible = progress >= st.at;
     let zoneNow = null;
     for (const rec of records) {
       let t;
