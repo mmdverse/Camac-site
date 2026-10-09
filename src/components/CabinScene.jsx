@@ -217,8 +217,9 @@ function OrbitRig() {
     c.enableDamping = true;
     c.dampingFactor = 0.08;
     c.enablePan = false;
-    c.minDistance = 1.6;
-    c.maxDistance = 6;
+    c.enableZoom = false; // rotate only
+    c.minPolarAngle = 0; // every angle, from above to below
+    c.maxPolarAngle = Math.PI;
     c.target.set(0, 0, 0);
     c.enabled = false;
     // OrbitControls sets touch-action: none on the canvas, which blocks page scrolling on touch screens.
@@ -228,7 +229,7 @@ function OrbitRig() {
   }, [camera, gl]);
   useEffect(() => () => controls.dispose(), [controls]);
   useFrame(() => {
-    const on = store.assembled && !store.selected;
+    const on = store.assembled;
     if (controls.enabled !== on) controls.enabled = on;
     if (on) controls.update();
   });
@@ -358,13 +359,6 @@ function CameraRig({ cabin, partBoxesRef }) {
       }
     }
 
-    const focus = store.selected && store.assembled ? partBoxesRef.current.get(store.selected) : null;
-    if (focus) {
-      const dist = Math.max(0.9, focus.size * 1.7);
-      wantTarget = focus.center.clone();
-      wantPos = focus.center.clone().add(new THREE.Vector3(0.55, 0.3, 1).normalize().multiplyScalar(dist));
-      wantFov = 28;
-    }
 
     if (!cur.primed) {
       cur.pos.copy(wantPos);
@@ -388,7 +382,7 @@ function CameraRig({ cabin, partBoxesRef }) {
       (Math.sin(t * 53.0 + 2.1) * 0.5 + (Math.random() - 0.5) * 0.6) * amp * 0.7,
     );
 
-    const orbitOwns = store.assembled && !store.selected; // once complete, orbit controls own the camera
+    const orbitOwns = store.assembled; // once complete, orbit controls own the camera
     if (!orbitOwns) {
       camera.position.copy(cur.pos).add(shakeOffset);
       camera.lookAt(cur.target.clone().add(shakeOffset.clone().multiplyScalar(2.5)));

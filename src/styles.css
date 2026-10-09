@@ -336,3 +336,11 @@ body { background: var(--bg); }
   .loader-bar { animation: none; }
 }
 
+
+/* Footer: centred logo with no background; contact grid below */
+.sfooter-inner { grid-template-columns: 1fr 1fr; }
+.sfooter-brand { grid-column: 1 / -1; display: flex; flex-direction: column; align-items: center; text-align: center; }
+.sfooter-brand img { background: none; padding: 0; width: 120px; height: 120px; object-fit: contain; }
+.sfooter-brand p { margin: 14px auto 0; text-align: center; }
+.sfooter-row span:last-child { direction: auto; text-align: start; }
+@media (max-width: 768px) { .sfooter-inner { grid-template-columns: 1fr; } }

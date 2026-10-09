@@ -95,7 +95,7 @@ function useAutoScroll(ref) {
 }
 
 function FooterValue({ value }) {
-  return value ? <span>{value}</span> : <span className="sfooter-soon">به‌زودی</span>;
+  return value ? <span dir="auto">{value}</span> : <span className="sfooter-soon">به‌زودی</span>;
 }
 
 export default function Site({ cabin }) {
@@ -130,7 +130,7 @@ export default function Site({ cabin }) {
       <footer id="contact" className="sfooter interactive">
         <div className="sfooter-inner">
           <div className="sfooter-brand">
-            <img src="/brand/logo.webp" alt={brand.name} width="96" height="96" />
+            <img src="/brand/logo.webp" alt={brand.name} width="120" height="120" />
             <p>{brand.tagline}</p>
           </div>
 
@@ -151,7 +151,7 @@ export default function Site({ cabin }) {
                 {footer.socials.map((s) => (
                   <li key={s.label}>
                     <a href={s.href} target="_blank" rel="noopener noreferrer">
-                      {s.label}
+                      {s.label}: {s.handle ?? ''}
                     </a>
                   </li>
                 ))}

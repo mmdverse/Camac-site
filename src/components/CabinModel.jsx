@@ -35,11 +35,6 @@ export default function CabinModel({ cabin, onReady }) {
   const partsRef = useRef([]);
   const partByObject = useRef(new Map());
   const assemblyRef = useRef(null);
-  const hovered = useStore((s) => s.hovered);
-  const selected = useStore((s) => s.selected);
-  // HUD follows the hovered part, or the selected one when nothing is hovered.
-  const hudId = hovered ?? selected;
-  const hudInfo = hudId ? partsRef.current.find((p) => p.id === hudId) : null;
 
   useLayoutEffect(() => {
     const g = outer.current;
@@ -141,63 +136,12 @@ export default function CabinModel({ cabin, onReady }) {
       g.rotation.y += Math.atan2(Math.sin(tYaw - g.rotation.y), Math.cos(tYaw - g.rotation.y)) * kv;
       g.rotation.x += (tPitch - g.rotation.x) * kv;
     }
-    const k = 1 - Math.exp(-dt * 10);
-    for (const p of partsRef.current) {
-      const target = p.id === store.hovered || p.id === store.selected ? 1 : 0;
-      p.weight += (target - p.weight) * k;
-      for (const m of p.meshes) {
-        const mats = Array.isArray(m.material) ? m.material : [m.material];
-        for (const mat of mats) {
-          if (!mat.emissive) continue;
-          mat.emissive.copy(HIGHLIGHT_COLOR);
-          mat.emissiveIntensity = p.weight * HIGHLIGHT_STRENGTH;
-        }
-      }
-    }
   });
 
-  const resolvePart = (obj) => {
-    if (!store.assembled) return null; // parts are interactive only once the cabin is complete
-    let o = obj;
-    while (o) {
-      const id = partByObject.current.get(o);
-      if (id) return id;
-      o = o.parent;
-    }
-    return null;
-  };
-
-  const handlers = {
-    onPointerMove: (e) => {
-      e.stopPropagation();
-      const id = resolvePart(e.object);
-      if (id !== store.hovered) store.set({ hovered: id });
-      document.body.style.cursor = id ? 'pointer' : 'auto';
-    },
-    onPointerOut: () => {
-      store.set({ hovered: null });
-      document.body.style.cursor = 'auto';
-    },
-    onClick: (e) => {
-      e.stopPropagation();
-      const id = resolvePart(e.object);
-      if (!id) return;
-      store.set({ selected: store.selected === id ? null : id });
-    },
-  };
-
   return (
-    <group ref={outer} {...handlers}>
+    <group ref={outer}>
       <primitive object={scene} />
       <Impacts />
-      {hudInfo && (
-        <Html position={hudInfo.center.toArray()} center zIndexRange={[20, 0]} style={{ pointerEvents: 'none' }}>
-          <div className="hud-label">
-            <span className="hud-dot" />
-            <span className="hud-text">{hudInfo.label}</span>
-          </div>
-        </Html>
-      )}
     </group>
   );
 }

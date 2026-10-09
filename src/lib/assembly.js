@@ -507,6 +507,7 @@ export function createAssembly({ outer, scene, phases, fx }) {
 
   let lastZone = null;
   let popCam = null; // the fastener region the camera is holding
+  let laserLi = -1; // the letter the camera is following while it is cut
 
   // Fastener regions: the camera goes to a region's fixed view when its first fastener starts,
   // holds it until the last one of that region lands, then returns to the main path.
@@ -631,6 +632,18 @@ export function createAssembly({ outer, scene, phases, fx }) {
         rec.focused = rec.focused && t > 0;
       }
     }
+    const li = laser ? laser.activeLetter(progress) : -1;
+    if (li >= 0) {
+      // the camera moves in front of each letter as the laser reaches it
+      if (li !== laserLi) {
+        laserLi = li;
+        fx.setZone(laser.viewFor(li));
+      }
+    } else {
+      if (laserLi >= 0) {
+        laserLi = -1;
+        fx.setZone(null); // the word is done: back to the main position for the last joint
+      }
     const pz = activeRegion(progress);
     if (pz) {
       if (popCam !== pz) {
@@ -646,6 +659,7 @@ export function createAssembly({ outer, scene, phases, fx }) {
         lastZone = zoneNow;
         fx.setZone(zoneView(zoneNow));
       }
+    }
     }
     applyView(viewRec);
   }
@@ -674,6 +688,7 @@ export function createAssembly({ outer, scene, phases, fx }) {
       const lastStart = T0 + (merged.length - 1) * slot;
       laser = createLaserSign({
         fx,
+        toWorld: (v) => outer.localToWorld(v.clone()),
         panel: {
           cx: (b.min.x + b.max.x) / 2,
           cy: (b.min.y + b.max.y) / 2,
