@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { brand } from '../data/cabins';
@@ -9,16 +9,16 @@ import { useStore } from '../lib/useStore';
 
 gsap.registerPlugin(ScrollTrigger);
 
-// The scroll track: the assembly plays in the first part, then a showcase turns the finished cabin.
-const TRACK_VH = 3600;
-const ASSEMBLY_SHARE = 2600 / TRACK_VH;
+const ASSEMBLED_AT = 0.985;
 
 /**
  * The sequence spacer is the scroll track for the cinematic assembly.
- * Its progress (0..1) drives the 3D scene; after it ends, progress stays at 1.
+ * Its progress (0..1) drives the 3D scene. Once the cabin is complete it stays complete:
+ * scrolling back up never takes the pieces apart.
  */
 function useSequenceProgress(ref) {
   useEffect(() => {
+    let done = false;
     const trigger = ScrollTrigger.create({
       trigger: ref.current,
       start: 'top top',
@@ -26,19 +26,16 @@ function useSequenceProgress(ref) {
       scrub: false,
       onUpdate: (self) => {
         const seq = store.sequence;
-        const s = self.progress;
-        const a = Math.min(1, s / ASSEMBLY_SHARE);
-        const p = seq ? seq.map.toProgress(a) : a;
-        const u = Math.max(0, Math.min(1, (s - ASSEMBLY_SHARE) / (1 - ASSEMBLY_SHARE)));
-        // the pieces stay assembled during the showcase: scrolling back up only turns the camera
-        store.set({ progress: p, showU: u, assembled: u >= 0.999 });
+        const p = seq ? seq.map.toProgress(self.progress) : self.progress;
+        if (p >= ASSEMBLED_AT) done = true;
+        store.set({ progress: done ? 1 : p, assembled: done });
       },
     });
     return () => trigger.kill();
   }, [ref]);
 }
 
-const AUTO_IDLE_MS = 3000; // after this much time without input, the page moves on by itself
+$1 = 3000; // after this much time without input, the page moves on by itself
 const AUTO_RUN_MS = 165000; // the whole track, assembly and showcase, plays through in about this long
 const USER_EVENTS = ['wheel', 'touchstart', 'touchmove', 'pointerdown', 'keydown'];
 
@@ -135,6 +132,13 @@ function FooterItem({ row }) {
 
 export default function Site({ cabin }) {
   const sequenceRef = useRef(null);
+  const [showTop, setShowTop] = useState(false);
+  useEffect(() => {
+    const onScroll = () => setShowTop(window.scrollY > 400 && store.assembled);
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
   useSequenceProgress(sequenceRef);
   useAutoScroll(sequenceRef);
 
@@ -153,6 +157,19 @@ export default function Site({ cabin }) {
 
       {/* Scroll track for the cinematic assembly. */}
       <div ref={sequenceRef} className="sequence" aria-hidden="true" />
+
+      {/* Back to the top of the page. The finished cabin stays assembled. */}
+      <button
+        type="button"
+        className={`to-top ${showTop ? 'is-on' : ''}`}
+        onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+        aria-label="بازگشت به بالا"
+        title="بازگشت به بالا"
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <path d="M12 19V5M5.5 11.5L12 5l6.5 6.5" />
+        </svg>
+      </button>
 
       <footer id="contact" className="sfooter interactive">
         <div className="sfooter-inner">

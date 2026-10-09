@@ -180,7 +180,7 @@ button { font: inherit; color: inherit; }
 
 /* ---------- Cinematic assembly (v2) ---------- */
 /* Scroll track: 10 screens of scroll drive the assembly. */
-.sequence { height: 3600vh; pointer-events: none; } /* assembly (first 2600vh) + showcase (last 1000vh) */
+.sequence { height: 2600vh; pointer-events: none; }
 
 
 /* Chapter HUD: bottom-left, pinned to the viewport while the sequence plays. */
@@ -336,3 +336,16 @@ a.sfooter-item:hover { color: #e0a800; }
 @media (prefers-reduced-motion: reduce) {
   .loader-bar { animation: none; }
 }
+
+/* Back to top: appears once the cabin is complete and the page is scrolled down. */
+.to-top {
+  position: fixed; right: 18px; bottom: 22px; z-index: 30;
+  width: 44px; height: 44px; border-radius: 50%;
+  display: grid; place-items: center;
+  border: 1px solid rgba(224, 168, 0, .5); background: rgba(15, 14, 12, .72); color: #e0a800;
+  backdrop-filter: blur(6px); cursor: pointer;
+  opacity: 0; transform: translateY(8px); pointer-events: none;
+  transition: opacity .4s var(--ease), transform .4s var(--ease);
+}
+.to-top.is-on { opacity: 1; transform: none; pointer-events: auto; }
+.to-top svg { width: 20px; height: 20px; }

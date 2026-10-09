@@ -55,7 +55,6 @@ const ORDERS = {
  * fasteners in small groups. Each piece:
  *  - starts hidden, flies in from its own side with an eased path, and glows while in the air
  *  - lands with an impact at its contact point, then pauses before the next one starts
- *  - when scrolling is idle, a big piece in the air is shown at the centre of the view and turns once
  *  - gets a camera move (wide, orbit, or follow for yellow pieces)
  */
 export function createAssembly({ outer, scene, phases, fx }) {
@@ -407,12 +406,6 @@ export function createAssembly({ outer, scene, phases, fx }) {
       bounce: Math.min(0.05, 0.01 + info.size * 0.025),
       glowTargets,
       liveT: 0,
-      // presentation: big pieces can be shown in front of the camera while scrolling is idle
-      present: !isPop,
-      centerLocal: m.parent.worldToLocal(outer.localToWorld(info.center.clone())),
-      outerCenter: info.center.clone(),
-      show: 0,
-      presentTime: 0,
     });
 
     recOf.set(item, records[records.length - 1]);
@@ -490,21 +483,6 @@ export function createAssembly({ outer, scene, phases, fx }) {
     });
   }
 
-  // Turns the cabin so that the piece's seat faces the camera: yaw brings its side to the camera,
-  // pitch tilts low pieces (like the floor) toward the viewer so their seat is visible.
-  function applyView(rec) {
-    if (!rec || !fx.camPos) {
-      fx.view.active = false;
-      return;
-    }
-    const cam = fx.camPos;
-    const thetaC = Math.atan2(cam.x - outer.position.x, cam.z - outer.position.z);
-    const thetaP = Math.atan2(rec.outerCenter.x, rec.outerCenter.z);
-    fx.view.active = true;
-    fx.view.yaw = thetaC - thetaP;
-    fx.view.pitch = rec.outerCenter.y < 0 ? -0.45 : 0.12;
-  }
-
   let lastZone = null;
   let popCam = null; // the fastener region the camera is holding
   let laserLi = -1; // the letter the camera is following while it is cut
@@ -525,24 +503,16 @@ export function createAssembly({ outer, scene, phases, fx }) {
   };
 
   function update(progress, dt = 0, idle = false) {
-    let viewRec = null;
     laser?.update(progress, dt);
     for (const st of statics) st.m.visible = progress >= st.at;
     let zoneNow = null;
     for (const rec of records) {
       // One timeline for every scroll speed: auto-scroll and manual scroll place each piece identically,
       // so switching between them never moves a group of pieces at once.
-      let t = rec.motion === 'train'
+      const t = rec.motion === 'train'
         ? clamp01((progress - rec.start - rec.trainOff) / rec.trainW)
         : clamp01((progress - rec.start) / rec.dur);
       if (rec.zone && t > 0 && rec.motion !== 'train') zoneNow = rec.zone; // the zone of the latest big piece that has started
-      // Scroll drives the piece, but it never hangs in the air: when scrolling stops mid-flight the piece
-      // lands on its own; when scrolling resumes it follows the scroll again, easing (no jump).
-      const tScroll = t;
-      const landing = idle && tScroll > 0 && tScroll < 1;
-      const tPrev = rec.tDisp ?? 0;
-      rec.tDisp = tPrev + ((landing ? 1 : tScroll) - tPrev) * (1 - Math.exp(-dt * (landing ? 1.5 : 10)));
-      t = rec.tDisp;
       const m = rec.m;
       rec.liveT = t;
       const track = () => (rec.liveT >= 1 ? null : m.getWorldPosition(new THREE.Vector3()));
@@ -556,20 +526,6 @@ export function createAssembly({ outer, scene, phases, fx }) {
         else fx.focusOn?.(rec.focusWorld, rec.focusSize, rec.approach, rec.focusMode, track);
       }
 
-      const inAir = rec.motion === 'fly' && t > 0 && t < 1;
-
-      // Auto-landing: a presented piece that has turned for 3 s completes its landing while
-      // scrolling stays idle. Scrolling again hands control back to the scroll position.
-      if (rec.present && inAir && idle && rec.presentTime >= 3) {
-        if (rec.autoStart === undefined) rec.autoStart = t;
-        rec.autoP = Math.min(1, (rec.autoP ?? 0) + dt / 1.2);
-        t = rec.autoStart + (1 - rec.autoStart) * rec.autoP;
-      } else if (!idle) {
-        rec.autoStart = undefined;
-        rec.autoP = 0;
-      }
-      rec.liveT = t;
-      // after any auto-landing: a piece that has landed is no longer presented
       const flying = (rec.motion === 'fly' || rec.motion === 'train') && t > 0 && t < 1;
 
       // Glow while the piece is in the air, fading out as it lands.
@@ -593,30 +549,9 @@ export function createAssembly({ outer, scene, phases, fx }) {
       } else {
         m.visible = t > 0;
         const f = 1 - easeInOut(t); // eased path: slow start, gentle middle, slow landing
-
-        // Presentation: while scrolling is idle, a big piece in the air moves to the centre of
-        // the view and turns once over about three seconds. Scrolling again sends it on to the joint.
-        const wantShow = rec.present && flying && idle ? 1 : 0;
-        if (rec.autoStart !== undefined) {
-          // auto-landing: the presentation offset unwinds with the same easing as the landing
-          if (rec.autoShow === undefined) rec.autoShow = rec.show;
-          rec.show = rec.autoShow * (1 - easeInOut(rec.autoP ?? 0));
-        } else {
-          rec.autoShow = undefined;
-          // showing eases in slowly; releasing is quick, so a piece never hangs in front of the camera
-          rec.show += (wantShow - rec.show) * (1 - Math.exp(-dt * (wantShow ? 4 : 14)));
-        }
-        if (wantShow) rec.presentTime += dt;
-        else rec.presentTime = 0;
-        const turn = Math.PI * 2 * Math.min(1, rec.presentTime / 3);
-
-        m.position.copy(rec.rest).addScaledVector(rec.dir, f * (1 - rec.show));
-        if (rec.show > 0.001 && fx.presentWorld) {
-          const target = rec.m.parent.worldToLocal(fx.presentWorld.clone());
-          m.position.addScaledVector(target.sub(rec.centerLocal), rec.show);
-        }
-        // big pieces turn on their own axis while flying in (spin), and once while presented (turn)
-        const q = new THREE.Quaternion().setFromAxisAngle(Y_AXIS, rec.spin * f + turn * rec.show);
+        m.position.copy(rec.rest).addScaledVector(rec.dir, f);
+        // big pieces turn on their own axis while flying in
+        const q = new THREE.Quaternion().setFromAxisAngle(Y_AXIS, rec.spin * f);
         m.quaternion.copy(rec.restQuat).premultiply(q);
         if (t >= 0.95) {
           // small rebound after contact: the piece settles instead of stopping dead
@@ -625,9 +560,7 @@ export function createAssembly({ outer, scene, phases, fx }) {
         }
       }
 
-      if (rec.show > 0.01 && (!viewRec || rec.show > viewRec.show)) viewRec = rec;
-
-      if (t >= 0.95 && rec.show < 0.02) {
+      if (t >= 0.95) {
         if (!rec.fired) {
           rec.fired = true;
           emitImpact(rec);
@@ -666,7 +599,6 @@ export function createAssembly({ outer, scene, phases, fx }) {
       }
     }
     }
-    applyView(viewRec);
   }
 
   // The CAMAC sign is etched on the front face just before the last joint.
