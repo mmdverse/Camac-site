@@ -406,7 +406,8 @@ export function createAssembly({ outer, scene, phases, fx }) {
       zone,
       focusWorld: outer.localToWorld(contact.clone()),
       focusSize: info.size,
-      impact: item === lastItem ? { dust: 2.2, sparks: 1.8, shake: 1.4 } : phase.impact ?? {}, // strong, visible landing
+      impact: item === lastItem ? { dust: 2.2, sparks: 1.8, shake: 1.4, heavy: true } : phase.impact ?? {}, // strong, visible landing
+      isLast: item === lastItem,
       bounce: item === lastItem ? 0.09 : Math.min(0.05, 0.01 + info.size * 0.025), // the last piece rebounds clearly on landing
       glowTargets,
       liveT: 0,
@@ -472,6 +473,7 @@ export function createAssembly({ outer, scene, phases, fx }) {
     const sizeFactor = THREE.MathUtils.clamp(rec.size / 0.5, 0.25, 1.5);
     const isPop = rec.motion === 'train';
     const imp = rec.impact;
+    if (imp.heavy) fx.bigShake = 1; // the last piece's landing shakes the camera
     const a = rec.approach;
     fx.emit({
       x: rec.contact.x,
@@ -488,6 +490,7 @@ export function createAssembly({ outer, scene, phases, fx }) {
   }
 
   let lastZone = null;
+  let lastViewSet = false; // the camera holds on the last piece from its flight to its landing
   let popCam = null; // the fastener region the camera is holding
   let laserLi = -1; // the letter the camera is following while it is cut
 
@@ -531,6 +534,15 @@ export function createAssembly({ outer, scene, phases, fx }) {
       }
 
       const flying = (rec.motion === 'fly' || rec.motion === 'train') && t > 0 && t < 1;
+      if (rec.isLast && t > 0 && !lastViewSet) {
+        lastViewSet = true;
+        const c = rec.outerCenter;
+        const off = new THREE.Vector3(-1, 0.25, 0.9).normalize().multiplyScalar(2.2);
+        fx.setZone({
+          pos: outer.localToWorld(c.clone().add(off)),
+          target: outer.localToWorld(c.clone()),
+        });
+      }
 
       // Glow while the piece is in the air, fading out as it lands.
       if (rec.glowTargets.length) {
@@ -648,7 +660,8 @@ export function createAssembly({ outer, scene, phases, fx }) {
 
   // progress where the whole assembly (laser sign included) is finished, and that point's share of the scroll track
   const pieceEnd = Math.max(...records.map((r) => (r.motion === 'train' ? r.start + r.trainOff + r.trainW : r.start + r.dur)));
-  const completeAt = Math.min(1, Math.max(pieceEnd, laserEnd));
+  // a short pause after the last landing: the camera holds while the piece settles, then frames the cabin
+  const completeAt = Math.min(1, Math.max(pieceEnd + slot * 0.3, laserEnd));
   const share = toScroll(completeAt);
   return { update, phases: phaseInfo, count: records.length, scrollMap: { toScroll, toProgress }, stops, completeAt, share };
 }

@@ -7,6 +7,7 @@ import * as THREE from 'three';
  */
 export const fx = {
   shake: 0,
+  bigShake: 0, // strong landing shake of the last piece (decays)
   queue: [],
   idle: false, // true while scrolling has stopped (set by the camera rig)
   camPos: null, // camera position in world space (set by the camera rig)

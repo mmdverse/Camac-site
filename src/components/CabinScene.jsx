@@ -387,7 +387,8 @@ function CameraRig({ cabin, partBoxesRef }) {
 
     // Impact shake: a light, fast-decaying tremor. Kept subtle so the camera stays readable.
     fx.shake *= Math.exp(-dt * 6.5);
-    const amp = Math.min(0.008, Math.pow(fx.shake, 1.4) * 0.008);
+    fx.bigShake *= Math.exp(-dt * 1.8); // the last piece's landing: a clearly visible tremor
+    const amp = Math.min(0.008, Math.pow(fx.shake, 1.4) * 0.008) + fx.bigShake * 0.03;
     const t = state.clock.elapsedTime;
     shakeOffset.set(
       (Math.sin(t * 61.0) * 0.6 + (Math.random() - 0.5) * 0.8) * amp,
