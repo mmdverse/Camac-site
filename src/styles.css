@@ -22,9 +22,14 @@ button { font: inherit; color: inherit; }
 /* ---------- 3D stage: fixed full-viewport canvas behind the content ---------- */
 .stage {
   position: fixed;
-  inset: 0;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 100vh; /* fallback */
+  height: 100dvh; /* follows the mobile address bar */
   z-index: 0;
   background: var(--bg);
+  overflow: hidden;
 }
 .stage canvas { display: block; width: 100% !important; height: 100% !important; touch-action: pan-y; }
 

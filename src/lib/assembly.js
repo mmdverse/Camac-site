@@ -600,9 +600,11 @@ export function createAssembly({ outer, scene, phases, fx }) {
           rec.show = rec.autoShow * (1 - easeInOut(rec.autoP ?? 0));
         } else {
           rec.autoShow = undefined;
-          rec.show += (wantShow - rec.show) * (1 - Math.exp(-dt * 4));
+          // showing eases in slowly; releasing is quick, so a piece never hangs in front of the camera
+          rec.show += (wantShow - rec.show) * (1 - Math.exp(-dt * (wantShow ? 4 : 14)));
         }
         if (wantShow) rec.presentTime += dt;
+        else rec.presentTime = 0;
         const turn = Math.PI * 2 * Math.min(1, rec.presentTime / 3);
 
         m.position.copy(rec.rest).addScaledVector(rec.dir, f * (1 - rec.show));

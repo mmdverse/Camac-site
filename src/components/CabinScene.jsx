@@ -37,6 +37,7 @@ export default function CabinScene({ cabin, onModelReady }) {
     <Canvas
       shadows
       dpr={isMobile ? [1, 1.5] : [1, 2]}
+      resize={{ debounce: 250, scroll: false }} // the mobile address bar resizes the page: do not redraw on every step
       gl={{
         antialias: true,
         toneMapping: THREE.ACESFilmicToneMapping,
